@@ -60,6 +60,7 @@ public class SlottedPageHeaderTest {
     for (int i = header.getNumSlots()-1; i >= 0; --i) {
       Slot s = header.getSlot(i);
       short expectedOffset = Integer.valueOf(dataStart+(i*tupleSize)).shortValue();
+      //System.out.println("s.offset:"+s.offset+" ,expectedOffset:"+expectedOffset);
       assertTrue( s != null && 
                   s.offset == expectedOffset && s.length == tupleSize);
     }
@@ -119,6 +120,11 @@ public class SlottedPageHeaderTest {
   public void spaceAvailableTest() {
     populateHeader();
     short tupleSize = Integer.valueOf(schema.getTupleSize()+Tuple.headerSize).shortValue();
+    /*
+    System.out.println("fspace:"+header.getFreeSpace()+", tupleSize:"+tupleSize+",capcaity:"+capacity
+    		+"headerSize:"+header.getHeaderSize()+" ,slotIndex:"+header.slotIdx);
+    */
+    
     assertFalse ( header.isSpaceAvailable(tupleSize) );
   }
 
