@@ -25,9 +25,9 @@ public class StandardGenerator {
     Field zd = new Schema("test").new Field("z", new DoubleType());
     Field zs = new Schema("test").new Field("z", new StringType());
     Schema[] schArray = new Schema[] {
-        new Schema("iii", xi, yi, zi),
-        new Schema("lid", xl, yi, zd),
-        new Schema("lis", xl, yi, zs)
+        new Schema("iii", xi, yi, zi),//int int int
+        new Schema("lid", xl, yi, zd),//long int double
+        new Schema("lis", xl, yi, zs)//long int string
     };
     
     testSchemas = new LinkedHashMap<Schema, StreamGenerator>();

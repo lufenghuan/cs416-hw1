@@ -78,11 +78,14 @@ public class SlottedPageHeader extends PageHeader {
 	@CS316Todo
 	@CS416Todo
 	public void resetHeader(short numSlots, short slotIdx) {
+		
 		super.resetHeader();
-		this.numSlots = numSlots;
+		if(numSlots == -1) this.numSlots = 0;
+		else this.numSlots = numSlots;
 		if(slots == null){
-			this.slots = new ArrayList<Slot>(numSlots);
-			for(int i = 0; i < numSlots; i++){
+			//System.out.println(this.numSlots+" ,"+slotIdx);
+			this.slots = new ArrayList<Slot>(this.numSlots);
+			for(int i = 0; i < this.numSlots; i++){
 				Slot s = new Slot((short)-1, (short)-1);
 				slots.add(s);
 			}
@@ -210,13 +213,16 @@ public class SlottedPageHeader extends PageHeader {
 	@CS416Todo
 	public void growSlots(int index, Slot s) {
 		int preSize = numSlots;
-
-		slots.ensureCapacity(index);
-		numSlots = (short)index;
-		for(int i = preSize;i < numSlots; i++ ){
-			setSlot(i, (short)-1, (short)-1);
+		int newSize = index + 1;
+		slots.ensureCapacity(newSize);
+		numSlots = (short)newSize;
+		for(int i = preSize;i < newSize; i++ ){
+			Slot newS = new Slot ((short)-1,(short)-1);
+			slots.add(newS);
 		}
 		slots.set(index, s);
+		useSpace(s.length);
+		this.headerSize = getHeaderSize();
 		slotIdx = (short)(index + 1);
 
 	}
@@ -288,7 +294,8 @@ public class SlottedPageHeader extends PageHeader {
 	 */
 	@CS316Todo
 	@CS416Todo
-	public boolean hasDynamicSlots() { return filledBackward(); }
+	public boolean hasDynamicSlots() { 
+		return (filledBackward() && tupleSize == PageHeader.VARIABLE_LENGTH); }
 
 	/**
 	 * Indicates whether this slot at the given index exists.
@@ -322,7 +329,9 @@ public class SlottedPageHeader extends PageHeader {
 			return false;
 		}
 		Slot s = slots.get(slotIndex);
-		if( s.length >= size)//previously deleted slot or previously exist slot
+		if( s.offset < -1 && s.length >= size)//previously deleted slot 
+			return false;
+		if( s.offset > 0 && s.length>=size)//exit slot
 			return true;
 		if(s.offset < 0 && s.length < 0 && getFreeSpace() >= size)//unused slot
 			return true;
@@ -352,12 +361,17 @@ public class SlottedPageHeader extends PageHeader {
 	@CS416Todo
 	public boolean useSlot(int slotIndex, short tupleSize) { 
 		boolean r = false;
+		short offset = (short) -1;
+		if(filledBackward()) offset =(short)(freeSpaceOffset - tupleSize);
+		else offset = freeSpaceOffset;
+		
 		if(isValidPut(slotIndex, tupleSize)){
-			setSlot(slotIndex, getSlotOffset(slotIndex), tupleSize);
+			if(slotIndex >= slotIdx) setSlot(slotIndex, offset, tupleSize);
+			else setSlot(slotIndex, getSlotOffset(slotIndex), tupleSize);
 			r = true;
 		}
 		else if (hasDynamicSlots() && getFreeSpace() > (4*(slotIndex-numSlots-1)+tupleSize)){
-			Slot s = new Slot(freeSpaceOffset, tupleSize);
+			Slot s = new Slot(offset, tupleSize);
 			growSlots(slotIndex, s);
 			r = true;
 		}
@@ -384,7 +398,7 @@ public class SlottedPageHeader extends PageHeader {
 			return 1;
 		}
 		else if (hasDynamicSlots() && getFreeSpace() > (SLOT_SIZE+tupleSize)){
-			Slot s = new Slot(freeSpaceOffset, tupleSize);
+			Slot s = new Slot(offset, tupleSize);
 			growSlots(slotIdx, s);
 			r = 1;
 		}

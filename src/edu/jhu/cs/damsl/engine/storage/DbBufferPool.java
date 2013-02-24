@@ -7,6 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 
 import edu.jhu.cs.damsl.catalog.Defaults;
 import edu.jhu.cs.damsl.catalog.Defaults.SizeUnits;
@@ -29,9 +30,11 @@ public class DbBufferPool<HeaderType extends PageHeader,
                 extends BaseBufferPool<HeaderType, PageType>
 {
   // Page cache, tracking used buffer pool pages in access order.
-  LinkedHashMap<PageId, PageType> pageCache;
+  //LinkedHashMap<PageId, PageType> pageCache;
+  LRUCache<PageId, PageType> pageCache; //use LRUCache
   
   StorageEngine<HeaderType, PageType, FileType> storage;
+  FileManager<HeaderType, PageType, FileType> fmgr;
 
   // Buffer pool statistics.
   long numRequests;
@@ -45,7 +48,8 @@ public class DbBufferPool<HeaderType extends PageHeader,
   {
     super(e.getPageFactory(), bufferSize, bufferUnit, pageSize, pageUnit);
     storage = e;
-    pageCache = new LinkedHashMap<PageId, PageType>();
+   //pageCache = new LinkedHashMap<PageId, PageType>();
+    pageCache = new LRUCache<PageId,PageType>(super.numPages);
     numRequests = numHits = numEvictions = numFailedEvictions = 0;
   }
 
@@ -62,7 +66,29 @@ public class DbBufferPool<HeaderType extends PageHeader,
   @CS316Todo
   @CS416Todo
   public PageType getPage(PageId id) {
-    return null;
+
+	  PageType page = this.pageCache.get(id); // a page in buffer pool
+	if(page == null){//requested page does not exist in the buffer pool
+		if(freePages.isEmpty()){//not free page, must evict
+			page = evictPage();
+		}
+		else {
+			try {
+				page = getPage();
+			} catch (InterruptedException e) {
+				logger.warn("get free pace interrupted, {}",e.toString());
+				e.printStackTrace();
+			}
+		}
+		if(fmgr.readPage(page, id) == null) {
+			releasePage(page);//File Manager cannot find such pageId, so put the page back to freePage
+		}
+		else{
+			pageCache.put(id, page);
+		}
+	}
+	return page;
+
   }
 
   /**
@@ -73,7 +99,12 @@ public class DbBufferPool<HeaderType extends PageHeader,
    */
   @CS316Todo
   @CS416Todo
-  public void discardPage(PageId id) {}
+  public void discardPage(PageId id) {
+	  PageType page = pageCache.remove(id);
+	  if(page == null) logger.error("discardPage provide a invalid PageId {}", id);
+	  releasePage(page);
+
+  }
 
   /**
    * Cache eviction policy, yielding the page that has just been evicted for
@@ -84,7 +115,13 @@ public class DbBufferPool<HeaderType extends PageHeader,
   @CS316Todo
   @CS416Todo
   PageType evictPage() {
-    return null;
+    Iterator<Entry<PageId,PageType>> itr=pageCache.LRUCacheIterator();
+	PageType p = null;
+	if(itr.hasNext()) {
+		p=pageCache.remove(itr.next().getKey());
+		fmgr.writePage(p); //write back
+	}
+	return p;
   }
   
   /**
@@ -92,14 +129,31 @@ public class DbBufferPool<HeaderType extends PageHeader,
     */
   @CS316Todo
   @CS416Todo
-  public void flushPage(PageId id) {}
+  public void flushPage(PageId id) {
+	  PageType p = pageCache.remove(id);
+	  if(p == null) logger.error("discardPage provide a invalid PageId {}", id);
+	  if(p.isDirty()){//dirty, write back
+		  fmgr.writePage(p);
+		  releasePage(p);
+	  }
+  }
   
   /**
     * Flush all dirty pages currently in the buffer pool to disk.
     */
   @CS316Todo
   @CS416Todo
-  public void flushPages() {}
+  public void flushPages() {
+	  Iterator<Entry<PageId,PageType>> itr=pageCache.LRUCacheIterator();
+	  while(itr.hasNext()){
+		  Entry<PageId,PageType> e = itr.next();
+		  PageType p = e.getValue();
+		  if(p.isDirty()) {
+			  fmgr.writePage(p);
+			  releasePage(pageCache.remove(e.getKey()));
+		  }
+	  }
+  }
 
   /**
     * Buffered data access for adding data to the given relation.

@@ -93,12 +93,21 @@ public class Tuple extends DuplicatedChannelBuffer {
   }
   
   // Static constructors
+  
+  /*--------------------------
+   *  Singleton tuple constructor 
+   *-------------------------- */
 
   // Tuples for reading and copying.
   // These tuples have their writerIndexes set to the
   // end of the data segment, thus cannot be written to.
   
-  // Creates a tuple as a view of the source ChannelBuffer.
+  /** Creates a tuple as a view of the source ChannelBuffer.
+   * 
+   * @param source source ChannelBuffer, the first headerSize (4) bytes should be tuple size
+   * @param limitIndex max ChannelBuffer index
+   * @return a singleton tuple (variable length)
+   */
   public static Tuple getTuple(ChannelBuffer source, int limitIndex) {
     Tuple r = null;
     int available = source.readableBytes();
@@ -118,10 +127,15 @@ public class Tuple extends DuplicatedChannelBuffer {
     return r;
   }
     
-  // Tuple size here should contain the header size.
-  public static Tuple getTuple(ChannelBuffer source,
-                               int tupleSize, int limitIndex)
-  {
+  /** Creates a singleton tuple as a view of the source ChannelBuffer, the tuple length will be tupleSize
+   * NOTE Tuple size here should contain the header size.
+   * 
+   * @param source source ChannelBuffer, the first headerSize (4) bytes should be tuple size
+   * @param tupleSize Tuple size which contain the header size.
+   * @param limitIndex max ChannelBuffer index
+   * @return a singleton tuple size of tupleSize
+   */
+  public static Tuple getTuple(ChannelBuffer source, int tupleSize, int limitIndex){
     Tuple r = null;
     int nextPos = source.readerIndex() + tupleSize;
 
@@ -145,11 +159,19 @@ public class Tuple extends DuplicatedChannelBuffer {
   }
 
 
-  // Multi-tuple constructors
+  /*----------------------------
+   *  Multi-tuple constructors
+   *-----------------------------*/
   
-  public static Tuple getNTuples(ChannelBuffer source,
-                                 int upperBound, int limitIndex)
-  {
+  /**
+   * get up to upperBound variable length tuples from source
+   * @param source source buffer
+   * @param upperBound read up to upperBound number of tuples
+   * @param limitIndex max ChannelBuffer index
+   * @return A Tuple that contain multi-tuples
+   */
+  
+  public static Tuple getNTuples(ChannelBuffer source, int upperBound, int limitIndex){
     Tuple r = null;
     int i = upperBound;
     int available = source.readableBytes();
@@ -173,6 +195,15 @@ public class Tuple extends DuplicatedChannelBuffer {
     return r;
   }
 
+  /**
+   * get up to upperBound number of fixed length tuples from source.
+   * NOTE: Tuple size here should contain the header size.
+   * @param source source ChannelBuffer
+   * @param tupleSize fixed tuple length
+   * @param upperBound read up to upperBound number of tuples
+   * @param limitIndex max ChannelBuffer index
+   * @return A Tuple that contain multi-tuples
+   */
   // Tuple size here should contain the header size.
   public static Tuple getNTuples(ChannelBuffer source,
                                  int tupleSize, int upperBound, int limitIndex)
@@ -187,7 +218,9 @@ public class Tuple extends DuplicatedChannelBuffer {
     return r;
   }
 
-  // Tuples for writing.
+  /*------------------------
+   * Tuples for writing.
+   *------------------------*/
 
   /**
    * Creates a multi-tuple backed by the given buffer.
@@ -197,12 +230,23 @@ public class Tuple extends DuplicatedChannelBuffer {
    * Notes: tupleSize here should include the header size. The result contains
    * a valid count only if the tupleSize is positive. Also, requestedSize 
    * should be integer multiples of tupleSize if the latter is positive.
+   * 
+   * slice(int,int) 
+   * Returns a slice of this buffer's sub-region. Modifying the content 
+   * of the returned buffer or this buffer affects each other's content while
+   * they maintain separate indexes and marks. This method does not modify readerIndex 
+   * or writerIndex of this buffer.
+   * 
+   * @param alloc a given ChannelBuffer
+   * @param requestedSize requested buffer size
+   * @param tupleSize  size of tuple (include the header size), -1 for variable length. 
+   * @return An empty multi-tuple that is sub-region of ChannelBuffer of requestedSize
+   *         that resides the given alloc buffer 
    */
-  public static Tuple emptyTuple(ChannelBuffer alloc,
-                                 int requestedSize, int tupleSize)
-  {
+  public static Tuple emptyTuple(ChannelBuffer alloc,int requestedSize, int tupleSize){
     int currentWritePos = alloc.writerIndex();
-    ChannelBuffer dest = alloc.slice(currentWritePos, requestedSize);
+    //slice(int,int) Returns a slice of this buffer's sub-region.
+    ChannelBuffer dest = alloc.slice(currentWritePos, requestedSize); 
     dest.writerIndex(dest.readerIndex());
     alloc.writerIndex(currentWritePos+requestedSize);
     int n = tupleSize > 0? requestedSize / tupleSize : -1;
@@ -211,9 +255,13 @@ public class Tuple extends DuplicatedChannelBuffer {
   }
   
   /**
-   * Creates a single heap-allocated tuple of the requested size, which should
+   * Creates a SINGLE heap-allocated tuple of the requested size, which should
    * NOT include the header.
    * Notes: the result is a single tuple with fixed length if indicated.
+   *
+   * @param requestedSize NOT include header size
+   * @param varLength is variable length or not
+   * @return a SINGLE heap-allocated tuple of the requested size
    */
   public static Tuple emptyTuple(int requestedSize, boolean varLength) {
     assert ( requestedSize > 0 );
@@ -248,7 +296,7 @@ public class Tuple extends DuplicatedChannelBuffer {
    * Tuple size here should include the header size.
    * 
    * @param source the buffer containing a tuple to skip
-   * @param tupleSize the size of the tuple
+   * @param tupleSize the size of the tuple,include the header size
    * @return whether we successfully skipped a tuple
    */
   public static boolean skipTuple(ChannelBuffer source,
@@ -295,16 +343,21 @@ public class Tuple extends DuplicatedChannelBuffer {
   
   // Accessors
 
-  public boolean isMultiTuple() { return header == null; }
+  public boolean isMultiTuple() { return header == null; }  // ??
   public boolean isFixedLength() { return tupleSize > 0; }
   public int getFixedLength() { return tupleSize; }
 
-  // This method should be invoked every time we write to an allocated tuple
-  // to track the batch size. This is only needed if buffer methods are being
-  // invoked directly on the tuple.
-  // We assume this method is invoked only after a complete tuple write (and
-  // not in the middle of a partial write), that is, its writerIndex() is at
-  // the end of the tuple.
+  /**
+   * This method should be invoked every time we write to an allocated tuple
+   * to track the batch size. This is only needed if buffer methods are being
+   * invoked directly on the tuple.
+   * We assume this method is invoked only after a complete tuple write (and
+   * not in the middle of a partial write), that is, its writerIndex() is at
+   * the end of the tuple.
+   * 
+   * @param bytesWritten
+   * @return
+   */
   public boolean registerTuple(int bytesWritten) {
     boolean r = bytesWritten > 0;
 
@@ -334,9 +387,11 @@ public class Tuple extends DuplicatedChannelBuffer {
   }
 
 
-  // Advances a multi-tuple to the next data segment.
-  // This method is only valid for read-only tuples, that is, tuples that are
-  // not modified after construction.
+  /**
+   * Advances a multi-tuple to the next data segment.
+   * This method is only valid for read-only tuples, that is, tuples that are
+   * not modified after construction.
+   */
   public void nextTuple() {
     if ( nextTupleOffset >= 0 ) {
       readerIndex(nextTupleOffset);
@@ -352,9 +407,12 @@ public class Tuple extends DuplicatedChannelBuffer {
       if ( nextTupleOffset > writerIndex() ) nextTupleOffset = -1;
     }
   }
-  
-  // Concatenates two tuples together, returning a new tuple.
-  // This is a zero-copy operation based on concatenating buffers.
+  /**
+   * Concatenates two tuples together, returning a new tuple.
+   * This is a zero-copy operation based on concatenating buffers.
+   * @param other
+   * @return
+   */
   public Tuple concatTuple(Tuple other) {
     // Weak schema check, based on size alone. 
     if ( tupleSize == other.tupleSize) {
@@ -365,8 +423,13 @@ public class Tuple extends DuplicatedChannelBuffer {
     return null;
   }
   
-  // Fills this tuple from the given schema and fields if there is sufficient
-  // capacity, returning success status.
+  /**
+   * Fills this tuple from the given schema and fields if there is sufficient
+   * capacity, returning success status.
+   * @param schema
+   * @param fields
+   * @return
+   */
   public boolean fillTuple(Schema schema, List<Object> fields)
   {
     int writeStart = writerIndex();
@@ -399,7 +462,11 @@ public class Tuple extends DuplicatedChannelBuffer {
     return writerIndex() != writeStart;
   }
 
-  // Interprets the tuple's buffer according to the given schema.
+  /**
+   * Interprets the tuple's buffer according to the given schema.
+   * @param schema
+   * @return
+   */
   public List<Object> interpretTuple(Schema schema)
   {
     // Basic size checks.
@@ -431,19 +498,28 @@ public class Tuple extends DuplicatedChannelBuffer {
     return ( r.size() == fieldTypes.size()? r : null );
   }
   
-  // Returns a channel buffer representing the header and data segments.
+  /**
+   * Returns a channel buffer representing the header and data segments.
+   * @return
+   */
   public ChannelBuffer toBuffer() {
     if ( isMultiTuple() ) return ChannelBuffers.wrappedBuffer(this);
     return ChannelBuffers.wrappedBuffer(header, this);
   }
 
-  // Returns the amount of data readable from the buffer, including the header.
+  /**
+   * Returns the amount of data readable from the buffer, including the header.
+   * @return
+   */
   public int size() {
     return (header == null? 0 : header.readableBytes())+readableBytes();
   }
 
-  // Returns the number of tuples contained, -1 if unknown (i.e. when an 
-  // allocated multi-tuple does not have any additions registered)
+  /**
+   * Returns the number of tuples contained, -1 if unknown (i.e. when an 
+   * allocated multi-tuple does not have any additions registered)
+   * @return
+   */
   public int count() { return isMultiTuple()? tupleCount : 1; }
 
   public String toString(Schema schema) {

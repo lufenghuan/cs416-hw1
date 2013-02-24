@@ -1,11 +1,14 @@
 package edu.jhu.cs.damsl.engine.storage.page;
 
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.buffer.HeapChannelBufferFactory;
 
 import edu.jhu.cs.damsl.catalog.Schema;
 import edu.jhu.cs.damsl.catalog.identifiers.PageId;
 import edu.jhu.cs.damsl.engine.storage.Tuple;
 import edu.jhu.cs.damsl.engine.storage.iterator.page.SlottedPageIterator;
+import edu.jhu.cs.damsl.engine.storage.page.SlottedPageHeader.Slot;
 import edu.jhu.cs.damsl.engine.storage.page.factory.HeaderFactory;
 import edu.jhu.cs.damsl.engine.storage.page.factory.SlottedPageHeaderFactory;
 import edu.jhu.cs.damsl.utils.hw1.HW1.*;
@@ -80,58 +83,122 @@ public class SlottedPage extends Page<SlottedPageHeader> {
 
   @CS316Todo
   @CS416Todo
+  /**
+   * Get a fixed length tuple form given slotIndex
+   * @param slotIndex given slot index
+   * @param tupleSize tuple size NOTE:  contain tupleHeader
+   * @return a fixed length tuple form given slotIndex
+   */
   public Tuple getTuple(int slotIndex, int tupleSize) {
-    return null;
+	if(!header.isValidTuple(slotIndex)){
+		logger.error("invalid tuple index {}",slotIndex);
+		return null;
+	}
+	Slot s = header.getSlot(slotIndex);
+	/*
+	ChannelBuffer buf = 
+			HeapChannelBufferFactory.getInstance().getBuffer(tupleSize);
+	buf.writeInt(tupleSize);
+	buf.writeBytes(this, s.offset, s.length);
+	*/
+	Tuple t = Tuple.emptyTuple(tupleSize-Tuple.headerSize, header.tupleSize == PageHeader.VARIABLE_LENGTH);
+	t.writeBytes(this, s.offset, s.length);
+
+	return t;
   }
   
   @CS316Todo
   @CS416Todo
+  /**
+   * Given the index of a slot in the page.
+   * @param slotIndex
+   * @return
+   */
   public Tuple getTuple(int slotIndex) {
-    return null;
+	  if(!header.isValidTuple(slotIndex)){
+		  logger.error("invalid tuple index {}",slotIndex);
+		  return null;
+	  }
+	  short len = header.getSlotLength(slotIndex);
+	  return getTuple(slotIndex, len+Tuple.headerSize);
   }
 
   // Adds a tuple the to start of the free space block.
   @CS316Todo
   @CS416Todo
+  /**NOTE: This implementation does not write tuple header to the page
+   * @param t tuple
+   * @param tupleSize size of the tuple contaion tuple header
+   * @return if the put is successful
+   */
   public boolean putTuple(Tuple t, short tupleSize) {
-    return false;
+	int index = header.getNextSlot();
+    if(header.useNextSlot((short) (tupleSize-Tuple.headerSize.shortValue())) == 1 ){
+    	
+//		t.setByte(this,header.getSlot(index).offset,tupleSize-Tuple.headerSize);
+		this.setBytes(header.getSlotOffset(index), t, t.readerIndex(),tupleSize-Tuple.headerSize);
+		return true;
+	}
+	return false;
   }
   
   @Override
   @CS316Todo
   @CS416Todo
+  /**
+   *  NOTE: This implementation does not write tuple header to the page
+   */
   public boolean putTuple(Tuple t) {
-    return false;
+	return putTuple(t, (short)t.size());
   }
 
-  // Inserts a tuple at the given slot in this page, overwriting the existing
-  // entry for fixed length tuples.
+  
   @CS316Todo
   @CS416Todo
+  /**
+   *  Inserts a tuple at the given slot in this page, overwriting the existing
+   *  entry for fixed length tuples.
+   * @param t
+   * @param tupleSize
+   * @param slotIndex
+   * @return if the insert is successful
+   */
   public boolean insertTuple(Tuple t, short tupleSize, int slotIndex) {
-    return false;
+	if(header.useSlot(slotIndex, tupleSize)){
+		//t.readBytes(this,header.getSlotOffset(slotIndex),tupleSize);
+		this.setBytes(header.getSlotOffset(slotIndex), t, t.readerIndex(),tupleSize-Tuple.headerSize);
+		return true;
+	}
+	return false;
+
   }
   
   @CS316Todo
   @CS416Todo
   public boolean insertTuple(Tuple t, int slotIndex) {
-    return false;
+    return insertTuple(t, (short)t.size(),slotIndex);
   }
 
   // Zeroes out the contents of the given slot.
   @CS316Todo
   @CS416Todo
-  protected void clearTuple(int slotIndex) {}
+  protected void clearTuple(int slotIndex) {
+	  header.setSlot(slotIndex, (short)-1, header.getSlotLength(slotIndex));
+  }
 
   // Removes the tuple at the given slot in this page, zeroing the tuple data.
   @CS316Todo
   @CS416Todo
   public boolean removeTuple(int slotIndex) {
+	if(header.isValidTuple(slotIndex)){
+		clearTuple(slotIndex);
+		return true;
+	}
     return false;
   }
 
   @CS316Todo
   @CS416Todo
-  public void clearTuples() {}
+  public void clearTuples() {header.resetHeader();}
 
 }

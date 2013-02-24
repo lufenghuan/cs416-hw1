@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
+import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,7 @@ import edu.jhu.cs.damsl.engine.storage.iterator.page.WrappedStorageIterator;
 import edu.jhu.cs.damsl.engine.storage.iterator.util.MultiplexedListIterator;
 import edu.jhu.cs.damsl.engine.storage.page.Page;
 import edu.jhu.cs.damsl.engine.storage.page.PageHeader;
+import edu.jhu.cs.damsl.engine.storage.page.factory.PageFactory;
 import edu.jhu.cs.damsl.utils.LRUCache;
 import edu.jhu.cs.damsl.utils.hw1.HW1.*;
 
@@ -236,7 +238,16 @@ public class FileManager<HeaderType extends PageHeader,
   @CS316Todo
   @CS416Todo
   public PageType readPage(PageType buf, PageId id) {
-    return null;
+    FileType f = dbFiles.get(id.fileId());
+	if(f != null){
+		f.readPage(buf, id);
+		return buf;
+	}
+	else{ 
+		logger.error("dbFile does not conation PageId {}", id);
+		return null;
+	}
+
   }
 
   /**
@@ -250,7 +261,10 @@ public class FileManager<HeaderType extends PageHeader,
   @CS316Todo
   @CS416Todo
   public int writePage(PageType page) {
-    return 0;
+    PageId pageId = page.getId();
+	FileType f = dbFiles.get(pageId.fileId());
+	
+    return f.writePage(page);
   }
 
   /**
@@ -269,7 +283,44 @@ public class FileManager<HeaderType extends PageHeader,
   public PageId getWriteablePage(
       TableId rel, short requestedSpace, Collection<PageId> cached)
   {
-    return null;
-  }
-
+	  PageId r =null;
+		List<FileId> files = rel.getFiles();
+		FileId lastFileId = files.get(files.size()-1);
+		PageFactory<HeaderType, PageType> pageFactory = fileFactory.getPageFactory();
+		
+		FileType lastFile = dbFiles.get(lastFileId);
+		Schema s = lastFile.getSchema();
+		int pageSize = lastFile.pageSize();
+		DirectChannelBufferFactory channelBufferFactory = new DirectChannelBufferFactory(pageSize);
+		PageType p = pageFactory.getPage(new PageId(lastFile.fileId(), 0), 
+				channelBufferFactory.getBuffer(pageSize), s);
+		
+		if(lastFile.numPages() == 0){ //no page exist in that table
+			r= p.getId();
+		}
+		else {
+			lastFile.readPage(p,new PageId(lastFile.fileId(),lastFile.numPages()) );
+			if(p.getHeader().isSpaceAvailable(requestedSpace)){//the last page in the last file has space
+				r= p.getId();
+			}
+			else {
+				if(lastFile.numPages() > (lastFile.capacity()/pageSize)){
+					//need new file
+					FileId fId = this.addFile(rel, pageSize, lastFile.capacity(), s);
+					if(fId != null){
+						p.clear();
+						pageFactory.getPage(new PageId(fId,0), p, s);
+						r = p.getId();
+					}
+				}
+				else {
+					int pageNum = p.getId().pageNum();
+					p.clear();
+					pageFactory.getPage(new PageId(lastFile.fileId(),pageNum+1), p, s);
+					r = p.getId();
+				}
+			}
+		}
+	    return r;
+	  }
 }
