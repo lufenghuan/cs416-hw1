@@ -2,6 +2,7 @@ package edu.jhu.cs.damsl.catalog.identifiers;
 
 import java.io.Serializable;
 
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 import edu.jhu.cs.damsl.catalog.Addressable;
@@ -50,5 +51,22 @@ public class PageId implements Addressable, Serializable {
     return (short) ((fileId == null? FileId.EMPTY_SIZE : fileId.size())+
                     (Integer.SIZE>>3));
   }
+  
+  @Override
+  public boolean equals(Object pid){
+	if(pid == null) return false;
+	else if(pid == this) return true;
+	else if(pid.getClass() != this.getClass()) return false;
+	else return (this.fileId.equals(((PageId)pid).fileId)
+			&& (this.pageNum==((PageId)pid).pageNum)
+			);
+  }
+  @Override
+  public int hashCode (){
+	 return new HashCodeBuilder().append(fileId.capacity).append(fileId.numPages)
+			 .append(fileId.pageSize).append(pageNum).append(fileId.filePath.getAbsolutePath())
+			 .toHashCode();
+  }
+  
 
 }

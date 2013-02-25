@@ -40,8 +40,10 @@ public class SlottedHeapFileIteratorTest {
   
   @Test
   public void iterateTest() {
+	SlottedHeapFile f = ftUtils.getFile();//one page in file
+	assertTrue(f!=null);
     SlottedHeapFileIterator iterator =
-      new SlottedHeapFileIterator(ftUtils.getPool(), ftUtils.getFile());
+      new SlottedHeapFileIterator(ftUtils.getPool(), f);
 
     ListIterator<Tuple> tupleIt = tuples.listIterator();
 

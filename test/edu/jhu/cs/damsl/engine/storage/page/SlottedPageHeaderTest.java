@@ -40,6 +40,7 @@ public class SlottedPageHeaderTest {
   void populateHeader() {
     if ( !(header == null || schema == null)  ) {
       short tupleSize = Integer.valueOf(schema.getTupleSize()+Tuple.headerSize).shortValue();
+      //System.out.println(tupleSize+", numSlots:"+header.getNumSlots());
       for (int i = header.getNumSlots()-1; i >= 0; --i) {
         header.useNextSlot(tupleSize);
       }

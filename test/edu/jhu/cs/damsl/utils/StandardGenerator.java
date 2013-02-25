@@ -38,7 +38,9 @@ public class StandardGenerator {
     LinkedList<Tuple> r = new LinkedList<Tuple>();
     for (Map.Entry<Schema, StreamGenerator> sv : testSchemas.entrySet()) {
       List<Object> values = sv.getValue().generateValues();
-      r.add(Tuple.schemaTuple(sv.getKey(), values));
+      Tuple t = Tuple.schemaTuple(sv.getKey(), values);
+      r.add(t);
+      //System.out.println(t.toString(sv.getKey()));
     }
     return r;
   }

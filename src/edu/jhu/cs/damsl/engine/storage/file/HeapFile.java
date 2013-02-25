@@ -3,7 +3,9 @@ package edu.jhu.cs.damsl.engine.storage.file;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
 
+import org.jboss.netty.buffer.DirectChannelBufferFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -137,14 +139,54 @@ public abstract class HeapFile<
   @CS316Todo
   @CS416Todo
   public int readPage(PageType buf, PageId id) {
-    return -1;
+    int pageNum = id.pageNum();
+	int pageSize = id.fileId().pageSize();
+	int numByte = -1;
+	FileChannel fChannel;
+	try {
+		HeaderFactory<HeaderType> headerFactor = buf.getHeaderFactory();//header factory to read header from buffer
+		fChannel = file.getChannel().position(pageNum*pageSize);
+		buf.setId(id);
+		numByte = buf.setBytes(0, fChannel, pageSize);
+		buf.resetReaderIndex();//set read index to the first byte
+		buf.writerIndex(pageSize);//set write index to the last byte
+		HeaderType h = headerFactor.readHeader(buf);
+		buf.setHeader(h);//re-construct header 
+	} catch (IOException e) {
+		logger.error("Exception occured during read randomAccessFile,{}",e.toString());
+	}
+	return numByte;
   }
 
   // Returns the number of bytes written from the page to the heap file.
   @CS316Todo
   @CS416Todo
   public int writePage(PageType p) {
-    return -1;
+    int r = -1;
+	PageId pageId = p.getId();
+	int pageSize = pageId.fileId().pageSize();
+	int pageIndex = pageId.pageNum();
+	
+	
+	if(pageIndex >=0 && pageIndex < (pageId.fileId().capacity()/pageSize)){//pageNum out of bound
+		if (pageIndex >= numPages()){
+			setNumPages(pageIndex+1);//update pageNum variable
+			extend(pageIndex+1-numPages());
+		}
+		try {
+			FileChannel fChannel = file.getChannel().position(pageIndex*pageSize);
+			p.writerIndex(0);
+			p.getHeader().writeHeader(p);//write header to the page
+			p.resetReaderIndex();
+			p.writerIndex(pageSize);
+			r = p.getBytes(0, fChannel, pageSize);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	else {logger.error("writePage(PageType P): pageNum out of bound, pageNum : {}",pageIndex);}
+    return r;
+
   }
 
   public abstract HeaderFactory<HeaderType> getHeaderFactory();
@@ -156,7 +198,13 @@ public abstract class HeapFile<
   @CS316Todo
   @CS416Todo
   public HeaderType readPageHeader(PageId id) {
-    return null;
+    DirectChannelBufferFactory pool = new DirectChannelBufferFactory(pageSize());
+	  HeaderType h = null;
+	  PageType p = (PageType) pool.getBuffer(pageSize());
+	  if(readPage(p, id) > 0 ){
+		h  = (HeaderType) new PageHeader(p.getHeader());
+	  }
+	  return h;
   }
 
   public String toString() {

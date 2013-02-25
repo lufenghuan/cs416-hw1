@@ -12,7 +12,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.DirectChannelBufferFactory;
+import org.jboss.netty.buffer.HeapChannelBufferFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -284,43 +286,48 @@ public class FileManager<HeaderType extends PageHeader,
       TableId rel, short requestedSpace, Collection<PageId> cached)
   {
 	  PageId r =null;
-		List<FileId> files = rel.getFiles();
-		FileId lastFileId = files.get(files.size()-1);
-		PageFactory<HeaderType, PageType> pageFactory = fileFactory.getPageFactory();
-		
-		FileType lastFile = dbFiles.get(lastFileId);
-		Schema s = lastFile.getSchema();
-		int pageSize = lastFile.pageSize();
-		DirectChannelBufferFactory channelBufferFactory = new DirectChannelBufferFactory(pageSize);
-		PageType p = pageFactory.getPage(new PageId(lastFile.fileId(), 0), 
-				channelBufferFactory.getBuffer(pageSize), s);
-		
-		if(lastFile.numPages() == 0){ //no page exist in that table
-			r= p.getId();
-		}
-		else {
-			lastFile.readPage(p,new PageId(lastFile.fileId(),lastFile.numPages()) );
-			if(p.getHeader().isSpaceAvailable(requestedSpace)){//the last page in the last file has space
-				r= p.getId();
-			}
-			else {
-				if(lastFile.numPages() > (lastFile.capacity()/pageSize)){
-					//need new file
-					FileId fId = this.addFile(rel, pageSize, lastFile.capacity(), s);
-					if(fId != null){
-						p.clear();
-						pageFactory.getPage(new PageId(fId,0), p, s);
-						r = p.getId();
-					}
-				}
-				else {
-					int pageNum = p.getId().pageNum();
-					p.clear();
-					pageFactory.getPage(new PageId(lastFile.fileId(),pageNum+1), p, s);
-					r = p.getId();
-				}
-			}
-		}
+	  List<FileId> files = rel.getFiles(); //get storage file id in relation
+	  FileId lastFileId = files.get(files.size()-1); //get last file id in the relation
+	  FileType lastFile = dbFiles.get(lastFileId); //get the last file according to the lastFileId
+	  PageFactory<HeaderType, PageType> pageFactory = fileFactory.getPageFactory();//create page factory
+	  Schema s = lastFile.getSchema(); 
+	  int pageSize = lastFile.pageSize();
+	  
+	  PageType page = pool.getPageIfReady();//try to get a free page
+	  if(page == null) page = pool.evictPage(); //no free page, evict one
+	  
+	  
+	  if(files.size() == 1 && lastFile.numPages() == 0){ //no page exist in that table
+		  r= page.getId();
+	  }
+	  else {
+		  //read last page in the last file
+		  lastFile.readPage(page,new PageId(lastFile.fileId(),lastFile.numPages()-1) );
+		  
+		  if(page.getHeader().getFreeSpace() >= requestedSpace){//the last page in the last file has space
+			  r= page.getId();
+		  }
+		  else {
+			  //last last page in last file does not have space
+			  if(lastFile.numPages() > (lastFile.capacity()/pageSize)){
+				  //the last file is full need new file
+				  FileId fId = this.addFile(rel, pageSize, lastFile.capacity(), s);
+				  if(fId != null){
+					  page.getHeader().resetHeader();
+					  pageFactory.getPage(new PageId(fId,0), page, s);
+					  r = page.getId();
+				  }
+			  }
+			  else {
+				  // the last file still have space, add new page to the file
+				  int pageNum = page.getId().pageNum();
+				  page.getHeader().resetHeader();
+				  
+				  pageFactory.getPage(new PageId(lastFile.fileId(),pageNum+1), page, s);
+				  r = page.getId();
+			  }
+		  }
+	  }
 	    return r;
 	  }
 }

@@ -1,10 +1,12 @@
 package edu.jhu.cs.damsl.engine.storage;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
@@ -120,6 +122,7 @@ public class DbBufferPool<HeaderType extends PageHeader,
 	if(itr.hasNext()) {
 		p=pageCache.remove(itr.next().getKey());
 		fmgr.writePage(p); //write back
+		p.getHeader().resetHeader();
 	}
 	return p;
   }
@@ -172,7 +175,15 @@ public class DbBufferPool<HeaderType extends PageHeader,
   @CS316Todo
   @CS416Todo
   public PageId getWriteablePage(TableId rel, short requestedSpace) {
-    return null;
+	List<FileId> fileIds =  rel.getFiles();
+	Iterator<Entry<PageId,PageType>> cachePageItr = pageCache.LRUCacheIterator();
+	PageType p = null;
+	while(cachePageItr.hasNext()){
+		p = cachePageItr.next().getValue();
+		if(p.getHeader().getFreeSpace() >= requestedSpace
+				&&fileIds.contains(p.getId().fileId())){ return p.getId();}
+	}
+	return fmgr.getWriteablePage(rel, requestedSpace, null);//use null, only consider the last page in last file
   }
 
   public String toString() {

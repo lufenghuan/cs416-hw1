@@ -28,6 +28,7 @@ public class SlottedPageHeaderFactory
   // Read the header from the backing buffer into the in-memory header.
   public SlottedPageHeader readHeader(ChannelBuffer buf) {
     PageHeader h = pageHeaderFactory.readHeader(buf);
+    
     short slotCapacity = buf.readShort();
     short slotIndex = slotCapacity > 0? buf.readShort() : -1;
     short actualSlots = slotCapacity <= 0? buf.readShort() : slotCapacity;
@@ -35,13 +36,32 @@ public class SlottedPageHeaderFactory
     SlottedPageHeader r = new SlottedPageHeader(h, slotCapacity, slotIndex);
 
     short offset = 0;
+    if(r.filledBackward()) offset = r.getCapacity();
     for ( short i = 0; i < actualSlots; ++i) {
       Slot s = r.new Slot(buf.readShort(), buf.readShort());
       r.setSlot(i, s);
-      short noffset = (short) (s.offset + s.length);
-      offset = offset > noffset? offset : noffset;
+      //short noffset = (short) (s.offset + s.length);
+      //offset = offset > noffset? offset : noffset;
+      /*-----------------------------
+       * changed
+       * If filledBackwar(), find smallest offset
+       * otherwise find biggest offset
+       *------------------------------*/
+      if(r.filledBackward()) {
+    	  short noffset = (short) (s.offset);
+    	  offset = offset < noffset? offset : noffset;
+      }
+      else {
+    	  short noffset = (short) (s.offset + s.length);
+    	  offset = offset > noffset? offset : noffset;
+      }
+
     }
-    if ( offset > 0 ) { r.useSpace((short) (offset-r.getFreeSpaceOffset())); }
+    //if ( offset > 0 ) { r.useSpace((short) (offset-r.getFreeSpaceOffset())); }
+    if ( offset > 0 ) { 
+    	if(r.filledBackward())r.useSpace((short) (-offset+r.getFreeSpaceOffset())); 
+    	else r.useSpace((short) (offset-r.getFreeSpaceOffset())); 
+    }
     return r;
   }
   

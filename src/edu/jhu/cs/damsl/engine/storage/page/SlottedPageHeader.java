@@ -78,10 +78,10 @@ public class SlottedPageHeader extends PageHeader {
 	@CS316Todo
 	@CS416Todo
 	public void resetHeader(short numSlots, short slotIdx) {
-		
-		super.resetHeader();
-		if(numSlots == -1) this.numSlots = 0;
-		else this.numSlots = numSlots;
+		//System.out.println(numSlots+" ,"+slotIdx);
+		if(slotIdx > numSlots) {this.numSlots = slotIdx;this.slotIdx=slotIdx;}
+		else if(numSlots == -1 && slotIdx == -1){this.numSlots = 0;slotIdx=(short)0;}
+		else {this.numSlots = numSlots;this.slotIdx = slotIdx;}
 		if(slots == null){
 			//System.out.println(this.numSlots+" ,"+slotIdx);
 			this.slots = new ArrayList<Slot>(this.numSlots);
@@ -89,16 +89,27 @@ public class SlottedPageHeader extends PageHeader {
 				Slot s = new Slot((short)-1, (short)-1);
 				slots.add(s);
 			}
+			this.headerSize = getHeaderSize();
+			super.resetHeader();//rest freeSpaceOffset
 		}
 		else{
+			int size =  slots.size();
+							
 			for(Slot s:slots){
 				s.length = -1;
 				s.offset = -1;
 			}
+			if(numSlots > size){
+				for(int i= size; i<numSlots; i++){
+					Slot s = new Slot((short)-1,(short)-1);
+					slots.add(s);
+				}
+			}
+			this.headerSize = getHeaderSize();
+			super.resetHeader();//rest freeSpaceOffset
+
 		}
-		this.headerSize = getHeaderSize();
-		freeSpaceOffset = filledBackward()? bufCapacity : headerSize;
-		this.slotIdx = slotIdx;
+		
 	}
 
 	/**
@@ -140,18 +151,21 @@ public class SlottedPageHeader extends PageHeader {
      }
 		 */
 		super.writeHeader(buf);
+		//System.out.println("SlottedPageHeader.super: short:"+tupleSize+" , short:"+bufCapacity+" ,freeSpace:"+freeSpaceOffset);
 		short j;
 		if(this.tupleSize < 0){
 			//variable tuple size
-			buf.writeShort(-1);
+			buf.writeShort(numSlots);
 			buf.writeShort(slotIdx);
 			j = slotIdx;
+			//System.out.println("SlottedPageHeader: short:"+-1+" , short:"+slotIdx+" ,j:"+j);
 		} 
 		else{
 			//fixed tuple size
 			buf.writeShort(numSlots);
 			buf.writeShort(slotIdx);
 			j = (short) numSlots;
+			//System.out.println("SlottedPageHeader: short:"+numSlots+" , short:"+slotIdx+" ,j:"+j);
 		} 
 		for(short i = 0; i < j; i++){
 			Slot s = slots.get(i);
@@ -340,12 +354,15 @@ public class SlottedPageHeader extends PageHeader {
 
 	/**
 	 * Returns whether a tuple of the given size can be written to the
-	 * underlying page.
+	 * underlying page. First consider it can append to next empty slot, if no
+	 * try append
 	 */
 	@CS316Todo
 	@CS416Todo
 	public boolean isValidAppend(short size) { 
-		return isSpaceAvailable(size);
+		if(isSpaceAvailable(size)) return true;
+		else if (getFreeSpace() > (SLOT_SIZE+size)) return true;
+		return false;
 		/*
 		if(slotIdx == numSlots) return false;
 		else if (getFreeSpace() >= size) return true;
@@ -391,7 +408,7 @@ public class SlottedPageHeader extends PageHeader {
 		short offset = (short) -1;
 		if(filledBackward()) offset =(short)(freeSpaceOffset - tupleSize);
 		else offset = freeSpaceOffset;
-		if(isValidAppend(tupleSize)) {
+		if(isSpaceAvailable(tupleSize)) {
 			setSlot(slotIdx, offset, tupleSize);
 			useSpace(tupleSize);
 			advanceSlot();
