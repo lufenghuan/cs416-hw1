@@ -47,11 +47,16 @@ public class CSVLoader {
           String f = it3.next();
           fields.add(t.parseType(s));
         }
-
-        if ( (lineNumber % 1000) == 0 ) {
-          System.out.println("Read " + Integer.toString(lineNumber / 1000) + "k tuples");
+       //System.out.println("line:"+lineNumber);
+        if ( (lineNumber % 100000) == 0 ) {
+          System.out.println("Read " + Integer.toString(lineNumber / 100000) + " 100k tuples");
         }
-
+//        if ( lineNumber == 9289 ) {
+//            System.out.println("Read " + lineNumber);
+//          }
+//        if(lineNumber == 100){
+//        	System.out.println("100");
+//        }
         Tuple t = Tuple.schemaTuple(schema, fields);
         dbms.getStorageEngine().insertTuple(null, tid, t);
       }

@@ -59,6 +59,7 @@ public class StorageEngine<HeaderType extends PageHeader,
   {
     catalog = c;
     pageFactory = f.getPageFactory();
+
     pool = new DbBufferPool<HeaderType, PageType, FileType>(this,
                   Defaults.defaultBufferPoolSize, Defaults.defaultBufferPoolUnit,
                   Defaults.defaultPageSize, Defaults.defaultPageUnit);
@@ -177,8 +178,9 @@ public class StorageEngine<HeaderType extends PageHeader,
   public void insertTuple(TransactionId txn, TableId rel, Tuple t) 
     throws TransactionAbortException
   {
-    short requestedSize = (short) (t.isFixedLength()? t.getFixedLength() : t.size()); 
-    PageId id = pool.getWriteablePage(rel, requestedSize);
+    short requestedSize = (short) (t.isFixedLength()? t.getFixedLength() : t.size()); //include tuple header size
+    //short requestedSize = (short) t.size(); 
+    PageId id = pool.getWriteablePage(rel, (short)(requestedSize-Tuple.headerSize));//modified, minus tupple headerSize
     if ( id == null ) {
       logger.error("No valid page found when requesting writeable page");
       throw new TransactionAbortException();
@@ -190,6 +192,8 @@ public class StorageEngine<HeaderType extends PageHeader,
       logger.error("Invalid page, and tuple insertion");
       throw new TransactionAbortException();
     }
+    if(!p.getHeader().isDirty())
+    	p.getHeader().setFlag(PageHeader.DIRTY, true);
   }
 
   /**

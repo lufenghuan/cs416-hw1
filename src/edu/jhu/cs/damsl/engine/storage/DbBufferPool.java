@@ -1,7 +1,9 @@
 package edu.jhu.cs.damsl.engine.storage;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -36,7 +38,7 @@ public class DbBufferPool<HeaderType extends PageHeader,
   LRUCache<PageId, PageType> pageCache; //use LRUCache
   
   StorageEngine<HeaderType, PageType, FileType> storage;
-  FileManager<HeaderType, PageType, FileType> fmgr;
+ 
 
   // Buffer pool statistics.
   long numRequests;
@@ -49,6 +51,8 @@ public class DbBufferPool<HeaderType extends PageHeader,
                       Integer pageSize, SizeUnits pageUnit)
   {
     super(e.getPageFactory(), bufferSize, bufferUnit, pageSize, pageUnit);
+    logger.debug("Size of pool: {} pages",getNumFreePages());
+    logger.debug("File contaion {} pages",Defaults.getDefaultFileSize()/getPageSize());
     storage = e;
    //pageCache = new LinkedHashMap<PageId, PageType>();
     pageCache = new LRUCache<PageId,PageType>(super.numPages);
@@ -68,8 +72,8 @@ public class DbBufferPool<HeaderType extends PageHeader,
   @CS316Todo
   @CS416Todo
   public PageType getPage(PageId id) {
-
-	  PageType page = this.pageCache.get(id); // a page in buffer pool
+	numRequests++;
+	PageType page = this.pageCache.get(id); // a page in buffer pool
 	if(page == null){//requested page does not exist in the buffer pool
 		if(freePages.isEmpty()){//not free page, must evict
 			page = evictPage();
@@ -82,13 +86,13 @@ public class DbBufferPool<HeaderType extends PageHeader,
 				e.printStackTrace();
 			}
 		}
-		if(fmgr.readPage(page, id) == null) {
+		if(storage.fileMgr.readPage(page, id) == null) {
 			releasePage(page);//File Manager cannot find such pageId, so put the page back to freePage
 		}
 		else{
 			pageCache.put(id, page);
 		}
-	}
+	}else {numHits++;}
 	return page;
 
   }
@@ -117,12 +121,14 @@ public class DbBufferPool<HeaderType extends PageHeader,
   @CS316Todo
   @CS416Todo
   PageType evictPage() {
+	//current implementation no concurrent
     Iterator<Entry<PageId,PageType>> itr=pageCache.LRUCacheIterator();
 	PageType p = null;
 	if(itr.hasNext()) {
 		p=pageCache.remove(itr.next().getKey());
-		fmgr.writePage(p); //write back
+		storage.fileMgr.writePage(p); //write back
 		p.getHeader().resetHeader();
+		numEvictions++;
 	}
 	return p;
   }
@@ -136,8 +142,9 @@ public class DbBufferPool<HeaderType extends PageHeader,
 	  PageType p = pageCache.remove(id);
 	  if(p == null) logger.error("discardPage provide a invalid PageId {}", id);
 	  if(p.isDirty()){//dirty, write back
-		  fmgr.writePage(p);
-		  releasePage(p);
+		  storage.fileMgr.writePage(p);
+		  PageType deleteP = pageCache.remove(p.getId());
+		  releasePage(deleteP);
 	  }
   }
   
@@ -148,13 +155,19 @@ public class DbBufferPool<HeaderType extends PageHeader,
   @CS416Todo
   public void flushPages() {
 	  Iterator<Entry<PageId,PageType>> itr=pageCache.LRUCacheIterator();
+	  LinkedList<PageType> flushs = new LinkedList <PageType>();
 	  while(itr.hasNext()){
 		  Entry<PageId,PageType> e = itr.next();
 		  PageType p = e.getValue();
 		  if(p.isDirty()) {
-			  fmgr.writePage(p);
-			  releasePage(pageCache.remove(e.getKey()));
+			  storage.fileMgr.writePage(p);
+			  //releasePage(pageCache.remove(e.getKey()));//concurrent modify excetion
+			  flushs.add(p);
 		  }
+	  }
+	  for(PageType p :flushs){
+		 PageType deleteP = pageCache.remove(p.getId());
+		 releasePage(deleteP);
 	  }
   }
 
@@ -176,14 +189,50 @@ public class DbBufferPool<HeaderType extends PageHeader,
   @CS416Todo
   public PageId getWriteablePage(TableId rel, short requestedSpace) {
 	List<FileId> fileIds =  rel.getFiles();
-	Iterator<Entry<PageId,PageType>> cachePageItr = pageCache.LRUCacheIterator();
-	PageType p = null;
-	while(cachePageItr.hasNext()){
-		p = cachePageItr.next().getValue();
-		if(p.getHeader().getFreeSpace() >= requestedSpace
-				&&fileIds.contains(p.getId().fileId())){ return p.getId();}
+	//Iterator<Entry<PageId,PageType>> cachePageItr = pageCache.LRUCacheIterator();
+	HashSet<PageId> visited = new HashSet<PageId> ();
+	//ArrayList<PageId> visited = new ArrayList<PageId> ();
+	//PageType p = null;
+	if(fileIds.size() > 0){
+		FileId lastFid = fileIds.get(fileIds.size()-1);
+		int num = lastFid.numPages();
+		if(num > 0) {
+			PageId lastPageId = new PageId (lastFid,num-1);
+			PageType lastPage = pageCache.get(lastPageId);
+			if(lastPage!=null && lastPage.getHeader().isSpaceAvailable(requestedSpace)){
+				return lastPageId;}
+			else visited.add(lastPageId);
+		}
 	}
-	return fmgr.getWriteablePage(rel, requestedSpace, null);//use null, only consider the last page in last file
+	//linear scan not efficent
+//	while(cachePageItr.hasNext()){
+//		p = cachePageItr.next().getValue();
+//		if(fileIds.contains(p.getId().fileId())){
+//			visited.add(p.getId());
+//			if(p.getHeader().isSpaceAvailable(requestedSpace)){ 
+//				return p.getId();}//find in buffer pool
+//		}
+//	}
+	return storage.fileMgr.getWriteablePage(rel, requestedSpace, visited);//use null, only consider the last page in last file
+  }
+  
+  /**
+   * clear buffer pool, flush the modified page
+   */
+  public void clearPool(){
+  	flushPages();
+  	
+  	Iterator<Entry<PageId,PageType>> itr=pageCache.LRUCacheIterator();
+	  LinkedList<PageId> toDelete = new LinkedList <PageId>();
+	  while(itr.hasNext()){
+		  Entry<PageId,PageType> e = itr.next();
+		  PageId p = e.getKey();
+		  toDelete.add(p);		  
+	  }
+	  
+	  for(PageId id :toDelete){
+	  	discardPage(id);
+	  }
   }
 
   public String toString() {

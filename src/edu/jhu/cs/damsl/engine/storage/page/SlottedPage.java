@@ -84,10 +84,10 @@ public class SlottedPage extends Page<SlottedPageHeader> {
   @CS316Todo
   @CS416Todo
   /**
-   * Get a fixed length tuple form given slotIndex
+   * Get a  tuple form given slotIndex
    * @param slotIndex given slot index
    * @param tupleSize tuple size NOTE:  contain tupleHeader
-   * @return a fixed length tuple form given slotIndex
+   * @return a tuple form given slotIndex
    */
   public Tuple getTuple(int slotIndex, int tupleSize) {
 	if(!header.isValidTuple(slotIndex)){
@@ -135,13 +135,15 @@ public class SlottedPage extends Page<SlottedPageHeader> {
 	int index = header.getNextSlot();
     if(header.useNextSlot((short) (tupleSize-Tuple.headerSize.shortValue())) == 1 ){
     	
-//		t.setByte(this,header.getSlot(index).offset,tupleSize-Tuple.headerSize);
-		this.setBytes(header.getSlotOffset(index), t, t.readerIndex(),tupleSize-Tuple.headerSize);
+    	int writeLen = 0;
+		if(this.header.tupleSize == PageHeader.VARIABLE_LENGTH) writeLen = tupleSize -Tuple.headerSize;
+		else writeLen = this.header.tupleSize;
+		this.setBytes(header.getSlotOffset(index), t, t.readerIndex(),writeLen);
 		return true;
 	}
 	return false;
   }
-  
+ 
   @Override
   @CS316Todo
   @CS416Todo
@@ -166,7 +168,10 @@ public class SlottedPage extends Page<SlottedPageHeader> {
   public boolean insertTuple(Tuple t, short tupleSize, int slotIndex) {
 	if(header.useSlot(slotIndex, tupleSize)){
 		//t.readBytes(this,header.getSlotOffset(slotIndex),tupleSize);
-		this.setBytes(header.getSlotOffset(slotIndex), t, t.readerIndex(),tupleSize-Tuple.headerSize);
+		int writeLen = 0;
+		if(this.header.tupleSize == PageHeader.VARIABLE_LENGTH) writeLen = tupleSize -Tuple.headerSize;
+		else writeLen = this.header.tupleSize;
+		this.setBytes(header.getSlotOffset(slotIndex), t, t.readerIndex(),writeLen);
 		return true;
 	}
 	return false;

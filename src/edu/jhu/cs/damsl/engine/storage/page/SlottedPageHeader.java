@@ -17,6 +17,9 @@ public class SlottedPageHeader extends PageHeader {
 
   public static final short SLOT_SIZE = (Short.SIZE>>3)*2;
   public static final short INVALID_SLOT = -1;
+  
+  //origional number of slots
+  protected short origionNum;
   //slot directory 
   protected short slotIdx; //free slot search marker 
   protected short numSlots;
@@ -35,9 +38,13 @@ public class SlottedPageHeader extends PageHeader {
   }
 
   public SlottedPageHeader(Schema sch, ChannelBuffer buf, byte flags) {
+//    this(flags,
+//         (short) (sch == null? -1 : (sch.getTupleSize()+Tuple.headerSize)),
+//         buf);
+    
     this(flags,
-         (short) (sch == null? -1 : (sch.getTupleSize()+Tuple.headerSize)),
-         buf);
+            (short) (sch == null? -1 : (sch.getTupleSize())),
+            buf);
   }
 
   public SlottedPageHeader(byte flags, short tupleSize, ChannelBuffer buf)
@@ -119,7 +126,9 @@ public class SlottedPageHeader extends PageHeader {
 	@CS316Todo
 	@CS416Todo
 	public void resetHeader() {
-		resetHeader(numSlots,(short)0);
+		if(tupleSize != PageHeader.VARIABLE_LENGTH)
+			resetHeader(numSlots,(short)0);
+		else resetHeader((short)0, (short)0);
 	}
 
 	/**
@@ -193,8 +202,12 @@ public class SlottedPageHeader extends PageHeader {
 	@CS416Todo
 	@Override
 	public boolean isSpaceAvailable(short size) { 
+//		if (!isValidTupleSize(size)) return false; //not valid tuple size
+//		else if (numSlots == slotIdx) return false;
+//		return getFreeSpace() >= size; //if there is enough free space
+		
 		if (!isValidTupleSize(size)) return false; //not valid tuple size
-		else if (numSlots == slotIdx) return false;
+		else if (numSlots == slotIdx) return (getFreeSpace() > (size+SLOT_SIZE));//dynamic growth
 		return getFreeSpace() >= size; //if there is enough free space
 	}
 	/**
@@ -360,9 +373,13 @@ public class SlottedPageHeader extends PageHeader {
 	@CS316Todo
 	@CS416Todo
 	public boolean isValidAppend(short size) { 
-		if(isSpaceAvailable(size)) return true;
-		else if (getFreeSpace() > (SLOT_SIZE+size)) return true;
-		return false;
+		if (!isValidTupleSize(size)) return false; //not valid tuple size
+		else if (numSlots == slotIdx) return false;
+		return getFreeSpace() >= size; //if there is enough free space
+		
+//		if(isSpaceAvailable(size)) return true;
+//		else if (getFreeSpace() > (SLOT_SIZE+size)) return true;
+//		return false;
 		/*
 		if(slotIdx == numSlots) return false;
 		else if (getFreeSpace() >= size) return true;
@@ -408,7 +425,7 @@ public class SlottedPageHeader extends PageHeader {
 		short offset = (short) -1;
 		if(filledBackward()) offset =(short)(freeSpaceOffset - tupleSize);
 		else offset = freeSpaceOffset;
-		if(isSpaceAvailable(tupleSize)) {
+		if(isValidAppend(tupleSize)) {
 			setSlot(slotIdx, offset, tupleSize);
 			useSpace(tupleSize);
 			advanceSlot();

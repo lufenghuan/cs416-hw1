@@ -140,6 +140,7 @@ public abstract class HeapFile<
   @CS416Todo
   public int readPage(PageType buf, PageId id) {
     int pageNum = id.pageNum();
+    if (pageNum >= numPages()) logger.error("readPage():Try to read invalid page index: {} from file",pageNum);
 	int pageSize = id.fileId().pageSize();
 	int numByte = -1;
 	FileChannel fChannel;
@@ -147,7 +148,7 @@ public abstract class HeapFile<
 		HeaderFactory<HeaderType> headerFactor = buf.getHeaderFactory();//header factory to read header from buffer
 		fChannel = file.getChannel().position(pageNum*pageSize);
 		buf.setId(id);
-		numByte = buf.setBytes(0, fChannel, pageSize);
+		numByte = buf.setBytes(0, fChannel, pageSize);//copy data from file to buf
 		buf.resetReaderIndex();//set read index to the first byte
 		buf.writerIndex(pageSize);//set write index to the last byte
 		HeaderType h = headerFactor.readHeader(buf);
@@ -175,6 +176,7 @@ public abstract class HeapFile<
 		}
 		try {
 			FileChannel fChannel = file.getChannel().position(pageIndex*pageSize);
+			p.resetReaderIndex();
 			p.writerIndex(0);
 			p.getHeader().writeHeader(p);//write header to the page
 			p.resetReaderIndex();
@@ -200,6 +202,7 @@ public abstract class HeapFile<
   public HeaderType readPageHeader(PageId id) {
     DirectChannelBufferFactory pool = new DirectChannelBufferFactory(pageSize());
 	  HeaderType h = null;
+	  
 	  PageType p = (PageType) pool.getBuffer(pageSize());
 	  if(readPage(p, id) > 0 ){
 		h  = (HeaderType) new PageHeader(p.getHeader());

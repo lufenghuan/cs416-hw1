@@ -29,8 +29,7 @@ public class StreamGenerator {
     Random rng = new Random();
     for ( Type t : schema.getTypes() ) {
       if ( t instanceof IntType ) {
-        //r.add(rng.nextInt());
-        r.add(1);
+        r.add(rng.nextInt());
       } else if ( t instanceof LongType ) {
         r.add(rng.nextLong());
       } else if ( t instanceof FloatType ) {

@@ -3,7 +3,6 @@ package edu.jhu.cs.damsl.catalog.identifiers;
 import java.io.File;
 import java.io.Serializable;
 
-import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 import edu.jhu.cs.damsl.catalog.Addressable;
@@ -38,8 +37,7 @@ public class FileId implements Addressable, Serializable {
   
   @Override
   public int hashCode(){
-	  return new HashCodeBuilder().append(filePath.getAbsolutePath()).
-			  append(numPages).append(pageSize).append(capacity).toHashCode();
+  	return (filePath.getAbsolutePath()+Long.toString(capacity)).hashCode();
   }
   
   @Override
@@ -48,8 +46,6 @@ public class FileId implements Addressable, Serializable {
 	  else if(fid == this) return true;
 	  else if(fid.getClass() != this.getClass()) return false;
 	  else return (filePath.equals(fid)
-			  && pageSize == ((FileId)fid).pageSize
-			  && numPages == ((FileId)fid).numPages
 			  && capacity == ((FileId)fid).capacity
 			  );
   }
@@ -110,6 +106,8 @@ public class FileId implements Addressable, Serializable {
   }
 
   public String toString() { return getAddressString()+"("+getAddress()+")"; }
+  
+  public String print(){return pageSize+" ,"+numPages+" ,"+capacity+" ,"+getAddressString();}
 
   public static Integer INVALID_FILE = -1;
   public static Integer EMPTY_SIZE = ((Integer.SIZE*3+Long.SIZE)>>3);

@@ -13,20 +13,47 @@ import edu.jhu.cs.damsl.utils.hw1.HW1.*;
 public class ContiguousFileHeaderIterator
               implements StorageFileHeaderIterator<PageHeader>
 {
-  public ContiguousFileHeaderIterator(StorageFile<PageHeader, ContiguousPage> f) {}
+  StorageFile<PageHeader, ContiguousPage> file;
+  FileId fileId;
+  int filePages;
+  PageId currentPageId;
   
-  public FileId getFileId() { return null; }
-
-  public PageId getPageId() { return null; }
+  public ContiguousFileHeaderIterator(StorageFile<PageHeader, ContiguousPage> f) {
+	  file = f;
+	  fileId = f.fileId();
+	  reset();
+  }
   
-  public void reset() {}
+  public FileId getFileId() { return fileId; }
+
+  public PageId getPageId() { return currentPageId; }
   
-  public void nextPageId() {}
+  public void reset() {
+	  filePages = file.numPages();
+	  currentPageId = (filePages > 0 ? new PageId(fileId,0) :null);
+  }
+  
+  public void nextPageId() {
+  	if(currentPageId != null){
+  		currentPageId = (currentPageId.pageNum()+1 < filePages ?
+  				new PageId(fileId,currentPageId.pageNum()+1) : null);
+  	}
+  }
 
-  public boolean hasNext() { return false; }
+  public boolean hasNext() { 
+  	return (currentPageId == null ? false:
+  			currentPageId.pageNum() < filePages);
+  }
 
-  public PageHeader next() { return null; }
+  public PageHeader next() { 
+  	PageHeader h = null;
+  	if(currentPageId == null) return h;
+  	h = file.readPageHeader(currentPageId);
+  	nextPageId();
+  	return h; 
+  }
 
-  public void remove() {}
-
+  public void remove() {
+  	throw new UnsupportedOperationException("cannot remove page headers");
+  }
 }

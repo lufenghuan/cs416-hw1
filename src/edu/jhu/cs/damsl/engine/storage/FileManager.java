@@ -9,6 +9,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -265,6 +266,9 @@ public class FileManager<HeaderType extends PageHeader,
   public int writePage(PageType page) {
     PageId pageId = page.getId();
 	FileType f = dbFiles.get(pageId.fileId());
+	if(f == null){
+		System.out.println("");
+	}
 	
     return f.writePage(page);
   }
@@ -285,49 +289,66 @@ public class FileManager<HeaderType extends PageHeader,
   public PageId getWriteablePage(
       TableId rel, short requestedSpace, Collection<PageId> cached)
   {
-	  PageId r =null;
 	  List<FileId> files = rel.getFiles(); //get storage file id in relation
 	  FileId lastFileId = files.get(files.size()-1); //get last file id in the relation
 	  FileType lastFile = dbFiles.get(lastFileId); //get the last file according to the lastFileId
-	  PageFactory<HeaderType, PageType> pageFactory = fileFactory.getPageFactory();//create page factory
 	  Schema s = lastFile.getSchema(); 
 	  int pageSize = lastFile.pageSize();
 	  
 	  PageType page = pool.getPageIfReady();//try to get a free page
 	  if(page == null) page = pool.evictPage(); //no free page, evict one
-	  
+	  page.setHeader(page.getHeaderFactory().getHeader(s, page, PageHeader.FILL_BACKWARD));
 	  
 	  if(files.size() == 1 && lastFile.numPages() == 0){ //no page exist in that table
-		  r= page.getId();
+		  page.setId(new PageId(lastFileId, 0));
+		  lastFileId.setNumPages(1); //set fileId page num to 1
+		  logger.debug("add first page");
 	  }
 	  else {
-		  //read last page in the last file
-		  lastFile.readPage(page,new PageId(lastFile.fileId(),lastFile.numPages()-1) );
-		  
-		  if(page.getHeader().getFreeSpace() >= requestedSpace){//the last page in the last file has space
-			  r= page.getId();
+		  boolean isLastPageFull = false;
+		  //the last page in the last file in pool, and it is full
+		  if(cached.contains(new PageId(lastFileId,lastFile.numPages()-1))){
+			  isLastPageFull =true;
 		  }
 		  else {
-			  //last last page in last file does not have space
-			  if(lastFile.numPages() > (lastFile.capacity()/pageSize)){
+			  //read last page in the last file
+			  lastFile.readPage(page,new PageId(lastFile.fileId(),lastFile.numPages()-1) );
+			  if(page.getHeader().isSpaceAvailable(requestedSpace)){
+				  //the last page in the last file has space
+				  isLastPageFull = true;
+			  }
+		  }
+		  if(isLastPageFull){
+			  //last  page in last file does NOT have space
+			  page.setHeader(page.getHeaderFactory().getHeader(s, page, PageHeader.FILL_BACKWARD));
+			  if(lastFile.numPages() >= (lastFile.capacity()/pageSize)){
 				  //the last file is full need new file
 				  FileId fId = this.addFile(rel, pageSize, lastFile.capacity(), s);
+				  logger.debug("add  file no.{}",rel.getFiles().size());
 				  if(fId != null){
-					  page.getHeader().resetHeader();
-					  pageFactory.getPage(new PageId(fId,0), page, s);
-					  r = page.getId();
+					  page.setId(new PageId(fId, 0));
+					  fId.setNumPages(1); //set fileId page num to 1
 				  }
 			  }
 			  else {
 				  // the last file still have space, add new page to the file
-				  int pageNum = page.getId().pageNum();
-				  page.getHeader().resetHeader();
-				  
-				  pageFactory.getPage(new PageId(lastFile.fileId(),pageNum+1), page, s);
-				  r = page.getId();
+				  page.setId(new PageId(lastFileId,lastFile.numPages()));
+				  if(lastFile.numPages() %1000 == 0)
+					  logger.debug("add  page {}",lastFileId.numPages()+1);
+				  lastFileId.setNumPages(lastFileId.numPages()+1);
+
 			  }
 		  }
 	  }
-	    return r;
+	 
+	  if(page.getId().fileId() == null) {
+		  pool.releasePage(page);//put back to free page
+		  logger.debug("Cannot find writeable page");
+		  return null;
 	  }
+	  else{  
+		  pool.pageCache.put(page.getId(), page); //put to buffer pool cache
+		  return page.getId();
+	  }
+  }
 }

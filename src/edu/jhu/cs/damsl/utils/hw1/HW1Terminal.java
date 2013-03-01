@@ -3,11 +3,10 @@ package edu.jhu.cs.damsl.utils.hw1;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.LinkedList;
-import java.util.StringTokenizer;
 import java.util.*;
 
 import edu.jhu.cs.damsl.catalog.Catalog;
+import edu.jhu.cs.damsl.catalog.Defaults;
 import edu.jhu.cs.damsl.catalog.Schema;
 import edu.jhu.cs.damsl.catalog.identifiers.FileId;
 import edu.jhu.cs.damsl.catalog.identifiers.PageId;
@@ -38,8 +37,8 @@ public class HW1Terminal extends Thread {
     SlottedStorageFileFactory f = new SlottedStorageFileFactory();
     dbms = new DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile>(f);
 
-    generator = 
-      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
+//    generator = 
+//      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
   }
   
   public static LinkedList<String> parseCommand(String msg) {
@@ -59,6 +58,7 @@ public class HW1Terminal extends Thread {
       "show",
       "page <relation name> <page id>",
       "benchmark <benchmark mode> <relation name> [probability]",
+      "full_4k_test",
       "bye"
     };
     String help = ""; for (String c : cmds) { help += c+"\n"; }
@@ -93,7 +93,18 @@ public class HW1Terminal extends Thread {
       System.out.println("Tuple : "+r);            
     }
   }
-
+//  fts.put("orderkey", new IntType());
+//  fts.put("partkey", new IntType());
+//  fts.put("suppkey", new IntType());
+//  fts.put("linenumber", new IntType());
+//
+//  fts.put("quantity", new DoubleType());
+//  fts.put("extendedprice", new DoubleType());
+//  fts.put("discount", new DoubleType());
+//
+//  fts.put("shipdate", new IntType());
+//  fts.put("commitdate", new IntType());
+//  fts.put("receiptdate", new IntType());
   void loadLineitemCsv(String tableName, String fileName) {
     Schema lineitemSchema = Lineitem.getSchema(tableName);
     TableId tId = null;
@@ -110,10 +121,16 @@ public class HW1Terminal extends Thread {
     }
     
     System.out.println("Loading data from file " + fileName + ".");
+    System.out.println("Starting timing load data");
+    long startTime = System.nanoTime();
     
     CSVLoader csv = new CSVLoader(fileName);
     csv.load(dbms, tId, lineitemSchema);
     dbms.getStorageEngine().getBufferPool().flushPages();
+    
+    long timeSpan = System.nanoTime() - startTime;
+    System.out.println("Loading: "+fileName+" takes" + Long.toString(timeSpan/1000000) + " ms.");
+
   }
 
   // Returns whether we're done processing.
@@ -171,7 +188,7 @@ public class HW1Terminal extends Thread {
         return false;
       }
 
-      Page p = getPageFromFile(ts.getId(), 0, pageNum);
+      Page p = getPageFromFile(ts.getId(), pageNum/5120, pageNum%5120);
       if ( p != null ) {
         try {
           printPage(ts, p);
@@ -181,8 +198,16 @@ public class HW1Terminal extends Thread {
         }
       }
 
-    } else if (cmd.toLowerCase().equals("benchmark")) {
-
+    } //end page
+    else if(cmd.toLowerCase().equals("full_4k_test")){
+    	test_full_4k(-1,-1,"",-1.0);
+    }
+    /*-------------------------------
+     * Benchmark  
+     *------------------------------*/
+    else if (cmd.toLowerCase().equals("benchmark")) {
+    	 generator = 
+    		      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
       String benchmarkMode = args.pop();
       String tableName = args.pop();
 
@@ -201,6 +226,9 @@ public class HW1Terminal extends Thread {
         boolean valid = false;
         int requests = Integer.parseInt(args.pop());
         int blocksize = Integer.parseInt(args.pop());
+//        int requests = 100;
+//        int blocksize = 20;
+        
         if (benchmarkMode.toLowerCase().equals("sequential")) {
             
             generator.generate(tid, requests, blocksize,
@@ -242,6 +270,66 @@ public class HW1Terminal extends Thread {
     }
 
     return false;
+  }
+  
+  public void test_full_4k(int request, int block, String tabName,double prob){
+  //default request size and block size
+  	int req = 330000;
+  	int blo = 1000;
+  	double p = 0.75;
+  	String tableName = "full_4k";
+  	
+  	if(request != -1) req = request;
+  	if(block != -1) blo = block;
+  	if(tabName != "") tableName = tabName; 
+  	if(prob !=-1.0) p = prob;
+  	
+  	// Reinitialize the DBMS from a catalog file.
+  	String catalogFile = "./full_4k";
+    SlottedStorageFileFactory f = new SlottedStorageFileFactory();      
+    dbms = new DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile>(catalogFile, f);
+    
+    //workload generator
+    TableId tid = dbms.getStorageEngine().getCatalog().getTableByName(tableName).getId();
+    generator = 
+	      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
+    
+    //sequential benchmark
+    System.out.println("Warming up ====================================");
+    generator.generate(tid, req, blo,WorkloadGenerator.Workload.Sequential, 0.0);
+    dbms.getStorageEngine().getBufferPool().clearPool();
+    System.out.println(dbms.toString());
+    System.out.println("end of warm up \n \n");
+    
+    //sequential benchmark
+    System.out.println("Sequential benchmark ====================================");
+    generator.generate(tid, req, blo,WorkloadGenerator.Workload.Sequential, 0.0);
+    dbms.getStorageEngine().getBufferPool().clearPool();
+    System.out.println(dbms.toString());
+    System.out.println("end sequential benchmar \n \n ");
+    
+    //almost sequential
+    System.out.println("almost-sequential benchmark ====================================");
+    generator.generate(tid, req, blo,WorkloadGenerator.Workload.MostlySequential, p);
+    dbms.getStorageEngine().getBufferPool().clearPool();
+    System.out.println("almost-sequential \n \n");
+    
+    //almost random
+    System.out.println("almost-random benchmark ====================================");
+    generator.generate(tid, req, blo,WorkloadGenerator.Workload.MostlyRandom, p);
+    dbms.getStorageEngine().getBufferPool().clearPool();
+    System.out.println("almost-random  benchmark \n \n");
+    
+    //half half
+    System.out.println("half-half benchmark ====================================");
+    generator.generate(tid, req, blo,WorkloadGenerator.Workload.HalfHalf, p);
+    dbms.getStorageEngine().getBufferPool().clearPool();
+    System.out.println("half-half benchmark \n \n");
+
+   
+    
+
+    
   }
 
   public void run() {

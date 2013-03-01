@@ -57,15 +57,22 @@ public class PageId implements Addressable, Serializable {
 	if(pid == null) return false;
 	else if(pid == this) return true;
 	else if(pid.getClass() != this.getClass()) return false;
-	else return (this.fileId.equals(((PageId)pid).fileId)
-			&& (this.pageNum==((PageId)pid).pageNum)
+	else{ 
+		return (
+				this.fileId.equals(((PageId)pid).fileId)
+			&& (this.pageNum.equals(((PageId)pid).pageNum) )
 			);
+	}
   }
   @Override
   public int hashCode (){
-	 return new HashCodeBuilder().append(fileId.capacity).append(fileId.numPages)
-			 .append(fileId.pageSize).append(pageNum).append(fileId.filePath.getAbsolutePath())
-			 .toHashCode();
+   return (fileId.filePath.getAbsolutePath()+
+  		 Integer.toString(pageNum)+
+  		 Long.toString(fileId.capacity)+
+  		 Integer.toString(fileId.pageSize) ).hashCode();
+//	 return new HashCodeBuilder().append(fileId.capacity)
+//			 .append(fileId.pageSize).append(pageNum).append(fileId.filePath.getAbsolutePath())
+//			 .toHashCode();
   }
   
 
