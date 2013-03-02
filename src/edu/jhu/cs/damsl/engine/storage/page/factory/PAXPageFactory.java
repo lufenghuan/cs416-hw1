@@ -15,35 +15,45 @@ import edu.jhu.cs.damsl.utils.hw1.HW1.*;
 public class PAXPageFactory implements PageFactory<PAXPageHeader, PAXPage>
 {
   public PAXPage getPage(Integer id, ChannelBuffer buf, Schema sch, byte flags) {
-    return null;
+    return new PAXPage(id, buf, sch, flags);
   }
 
   public PAXPage getPage(PageId id, ChannelBuffer buf, Schema sch, byte flags) {
-    return null;
+    return new PAXPage(id, buf, sch, flags);
   }
 
   public PAXPage getPage(Integer id, ChannelBuffer buf, Schema sch) {
-    return null;
+    return new PAXPage(id, buf, sch, (byte)0X00);
   }
   
   public PAXPage getPage(PageId id, ChannelBuffer buf, Schema sch) {
-    return null;
+    return new PAXPage(id, buf, sch, (byte)0X00);
   }
 
+  
+  /**
+   * does not support variable length
+   */
   public PAXPage getPage(Integer id, ChannelBuffer buf, byte flags) {
-    return null;
+    throw new UnsupportedOperationException("must provide schema,only support fix length");
   }
-  
+  /**
+   * does not support variable length
+   */
   public PAXPage getPage(PageId id, ChannelBuffer buf, byte flags) {
-    return null;
+  	throw new UnsupportedOperationException("must provide schema,only support fix length");
   }
-
+  /**
+   * does not support variable length
+   */
   public PAXPage getPage(Integer id, ChannelBuffer buf) {
-    return null;
+  	throw new UnsupportedOperationException("must provide schema,only support fix length");
   }
-  
+  /**
+   * does not support variable length
+   */
   public PAXPage getPage(PageId id, ChannelBuffer buf) {
-    return null;
+  	throw new UnsupportedOperationException("must provide schema,only support fix length");
   }
 
 }

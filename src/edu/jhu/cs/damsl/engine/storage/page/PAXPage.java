@@ -44,9 +44,11 @@ public class PAXPage extends Page<PAXPageHeader> {
 		if(header.getFreeSpace() >= requestedSize){
 			int offset = Tuple.headerSize;
 			for(int i = 0; i < header.attributeNum; i++){
-				this.setBytes(header.offsets[i], t, offset,header.attributeLen[i]);
-				offset += header.offsets[i];
+				this.setBytes(header.offsets[i]+header.numRecord*header.attributeLen[i],
+						t, offset,header.attributeLen[i]);
+				offset = header.offsets[i];
 			}
+			header.exist.set(header.numRecord);
 			header.useSpace(requestedSize);
 			return true;
 		}
@@ -58,6 +60,25 @@ public class PAXPage extends Page<PAXPageHeader> {
 	@CS416Todo  
 	public boolean putTuple(Tuple t) { 
 		return putTuple(t, header.tupleSize);
+	}
+	
+	public Tuple getTuple(short index){
+		if(header.isValidTuple(index))return null;
+		Tuple t = Tuple.emptyTuple(header.tupleSize,false);
+		int tupleOffset = Tuple.headerSize;
+		for(int i = 0; i < header.attributeNum; i++){
+			t.setBytes(tupleOffset,this, 
+					header.offsets[i]+index*header.attributeLen[i],header.attributeLen[i]);
+			tupleOffset += header.attributeLen[i];
+		}
+		return  t;
+	}
+	
+	public boolean removeTuple(int index){
+		if(header.isValidTuple(index)) return false;
+		header.exist.set(index, false);
+		return true;
+		
 	}
 
 }

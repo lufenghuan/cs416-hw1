@@ -95,7 +95,7 @@ public class ContiguousPage extends Page<PageHeader> {
 	  if(!isValidOffset(offset) || length < 0)
 		  return false;
 	  
-	  return ( (offset+length) < header.bufCapacity  
+	  return ( (offset+length) <= header.bufCapacity  
 			  && (offset >=header.headerSize) );
   }
   
@@ -156,6 +156,7 @@ public class ContiguousPage extends Page<PageHeader> {
 		offset = header.getFreeSpaceOffset()-length;
 
 	this.setBytes(offset, buf, length);
+	header.useSpace(length);
     return true;
   }
 

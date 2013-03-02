@@ -16,6 +16,7 @@ import edu.jhu.cs.damsl.engine.storage.page.PageHeader;
 import edu.jhu.cs.damsl.engine.storage.page.PAXPage;
 import edu.jhu.cs.damsl.engine.storage.page.PAXPageHeader;
 import edu.jhu.cs.damsl.engine.storage.page.factory.HeaderFactory;
+import edu.jhu.cs.damsl.engine.storage.page.factory.PAXPageFactory;
 import edu.jhu.cs.damsl.utils.hw1.HW1.*;
 
 @CS416Todo
@@ -62,6 +63,6 @@ public class PAXHeapFile extends HeapFile<PAXPageHeader, PAXPage> {
   
   @CS416Todo
   public HeaderFactory<PAXPageHeader> getHeaderFactory() {
-    return null;
+    return PAXPage.headerFactory;
   }
 }

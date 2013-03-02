@@ -96,6 +96,7 @@ public class FileManager<HeaderType extends PageHeader,
   // File management helpers.
   <IdType extends Addressable>
   String getDbFileName(IdType id, List<FileId> files) {
+    //return "jdbf"+Integer.toString(id.getAddress())+files.size();
     return "jdbf"+Integer.toString(id.getAddress())+files.size();
   }
 
@@ -298,7 +299,7 @@ public class FileManager<HeaderType extends PageHeader,
 	  PageType page = pool.getPageIfReady();//try to get a free page
 	  if(page == null) page = pool.evictPage(); //no free page, evict one
 	  page.setHeader(page.getHeaderFactory().getHeader(s, page, PageHeader.FILL_BACKWARD));
-	  page.getHeader().setDirty(false);
+	  //page.getHeader().setDirty(false);
 	  
 	  if(files.size() == 1 && lastFile.numPages() == 0){ //no page exist in that table
 		  page.setId(new PageId(lastFileId, 0));

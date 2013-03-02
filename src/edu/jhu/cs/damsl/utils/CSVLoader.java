@@ -47,7 +47,7 @@ public class CSVLoader {
           String f = it3.next();
           fields.add(t.parseType(s));
         }
-       //System.out.println("line:"+lineNumber);
+      // System.out.println("line:"+lineNumber);
         if ( (lineNumber % 100000) == 0 ) {
           System.out.println("Read " + Integer.toString(lineNumber / 100000) + " 100k tuples");
         }

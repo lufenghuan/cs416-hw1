@@ -91,7 +91,7 @@ public class PageHeader {
   public short getTupleSize() { return tupleSize; }
   
   public boolean isValidTupleSize(short size) {
-    return tupleSize <= 0 || tupleSize == size;
+    return tupleSize <= 0 || tupleSize == size || tupleSize-Tuple.headerSize ==size;
   }
 
   public boolean isSpaceAvailable(short size) {

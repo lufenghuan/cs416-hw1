@@ -44,13 +44,26 @@ public class PAXPageHeader extends PageHeader {
 		}
 		headerSize = getHeaderSize();
 		exist = new BitSet(recordCapacity);
-				resetHeader();
+		resetHeader();
 	}
 
+	public PAXPageHeader(PageHeader h,  short recordCapacity, short numRecord,
+			short attributeNum,short[] attributeLen,short[] offsets,byte[] bits) {
+    super(h);
+    this.recordCapacity = recordCapacity;
+    this.numRecord = numRecord;
+    this.attributeNum = attributeNum;
+    this.attributeLen = attributeLen;
+    this.offsets = offsets;
+    this.exist = BitSet.valueOf(bits);
+    resetHeader();
+  }
+	
 	@Override
 	public void writeHeader(ChannelBuffer buf){
 		super.writeHeader(buf);
-		buf.writeShort(attributeNum);
+		buf.writeShort(recordCapacity);
+		buf.writeShort(numRecord);
 		buf.writeShort(attributeNum);
 		for(short s : attributeLen){
 			buf.writeShort(s);
@@ -78,7 +91,7 @@ public class PAXPageHeader extends PageHeader {
 	@Override
 	public short getHeaderSize(){
 		return (short) (super.getHeaderSize()+
-				(Short.SIZE>>3)*(2+4*recordCapacity)+exist.toByteArray().length);
+				(Short.SIZE>>3)*(3+4*recordCapacity)+exist.toByteArray().length);
 	}
 
 	//Return the available space in the page, in bytes. 
@@ -86,6 +99,25 @@ public class PAXPageHeader extends PageHeader {
 		return (short) (bufCapacity - tupleSize*numRecord);
 	}
 
+	/**
+	 * if the given index is outof bound
+	 * @param index
+	 * @return
+	 */
+	public boolean isValidIndex(int index){
+		if(index < 0 || index > numRecord ) return false;
+		return true;
+	}
+	
+	/**
+	 * if the given index have valid tuple
+	 * @param index
+	 * @return
+	 */
+	public boolean isValidTuple(int index){
+		if(!isValidIndex(index) || exist.get(index)) return false;
+		return true;
+	}
 	public short getDataOffset(){
 		throw new UnsupportedOperationException("Cannot get dataOffset from PAXPage");		
 	}
