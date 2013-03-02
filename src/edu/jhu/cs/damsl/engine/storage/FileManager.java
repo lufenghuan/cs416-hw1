@@ -298,6 +298,7 @@ public class FileManager<HeaderType extends PageHeader,
 	  PageType page = pool.getPageIfReady();//try to get a free page
 	  if(page == null) page = pool.evictPage(); //no free page, evict one
 	  page.setHeader(page.getHeaderFactory().getHeader(s, page, PageHeader.FILL_BACKWARD));
+	  page.getHeader().setDirty(false);
 	  
 	  if(files.size() == 1 && lastFile.numPages() == 0){ //no page exist in that table
 		  page.setId(new PageId(lastFileId, 0));
@@ -321,6 +322,7 @@ public class FileManager<HeaderType extends PageHeader,
 		  if(isLastPageFull){
 			  //last  page in last file does NOT have space
 			  page.setHeader(page.getHeaderFactory().getHeader(s, page, PageHeader.FILL_BACKWARD));
+			  page.getHeader().setDirty(false);
 			  if(lastFile.numPages() >= (lastFile.capacity()/pageSize)){
 				  //the last file is full need new file
 				  FileId fId = this.addFile(rel, pageSize, lastFile.capacity(), s);

@@ -152,7 +152,9 @@ public abstract class HeapFile<
 		buf.resetReaderIndex();//set read index to the first byte
 		buf.writerIndex(pageSize);//set write index to the last byte
 		HeaderType h = headerFactor.readHeader(buf);
+		h.setDirty(false);
 		buf.setHeader(h);//re-construct header 
+		
 	} catch (IOException e) {
 		logger.error("Exception occured during read randomAccessFile,{}",e.toString());
 	}

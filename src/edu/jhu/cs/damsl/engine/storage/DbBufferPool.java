@@ -79,12 +79,7 @@ public class DbBufferPool<HeaderType extends PageHeader,
 			page = evictPage();
 		}
 		else {
-			try {
-				page = getPage();
-			} catch (InterruptedException e) {
-				logger.warn("get free pace interrupted, {}",e.toString());
-				e.printStackTrace();
-			}
+			page = getPageIfReady();
 		}
 		if(storage.fileMgr.readPage(page, id) == null) {
 			releasePage(page);//File Manager cannot find such pageId, so put the page back to freePage
@@ -126,8 +121,9 @@ public class DbBufferPool<HeaderType extends PageHeader,
 	PageType p = null;
 	if(itr.hasNext()) {
 		p=pageCache.remove(itr.next().getKey());
-		storage.fileMgr.writePage(p); //write back
-		p.getHeader().resetHeader();
+		if(p.getHeader().isDirty())
+			storage.fileMgr.writePage(p); //write back
+		//p.getHeader().resetHeader();
 		numEvictions++;
 	}
 	return p;

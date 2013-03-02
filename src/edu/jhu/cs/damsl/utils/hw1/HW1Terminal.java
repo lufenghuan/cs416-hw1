@@ -298,14 +298,14 @@ public class HW1Terminal extends Thread {
     System.out.println("Warming up ====================================");
     generator.generate(tid, req, blo,WorkloadGenerator.Workload.Sequential, 0.0);
     dbms.getStorageEngine().getBufferPool().clearPool();
-    System.out.println(dbms.toString());
+    //System.out.println(dbms.toString());
     System.out.println("end of warm up \n \n");
     
     //sequential benchmark
     System.out.println("Sequential benchmark ====================================");
     generator.generate(tid, req, blo,WorkloadGenerator.Workload.Sequential, 0.0);
     dbms.getStorageEngine().getBufferPool().clearPool();
-    System.out.println(dbms.toString());
+    //System.out.println(dbms.toString());
     System.out.println("end sequential benchmar \n \n ");
     
     //almost sequential
