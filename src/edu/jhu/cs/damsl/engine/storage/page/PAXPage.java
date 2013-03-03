@@ -41,15 +41,15 @@ public class PAXPage extends Page<PAXPageHeader> {
 	// Append a variable-length tuple to the page.
 	@CS416Todo  
 	public boolean putTuple(Tuple t, short requestedSize) { 
-		if(header.getFreeSpace() >= requestedSize){
+		if(header.getFreeSpace() >= (requestedSize-Tuple.headerSize)){
 			int offset = Tuple.headerSize;
 			for(int i = 0; i < header.attributeNum; i++){
 				this.setBytes(header.offsets[i]+header.numRecord*header.attributeLen[i],
 						t, offset,header.attributeLen[i]);
-				offset = header.offsets[i];
+				offset += header.attributeLen[i];
 			}
 			header.exist.set(header.numRecord);
-			header.useSpace(requestedSize);
+			header.useSpace((short) (requestedSize-Tuple.headerSize));
 			return true;
 		}
 		return false; 
@@ -63,14 +63,20 @@ public class PAXPage extends Page<PAXPageHeader> {
 	}
 	
 	public Tuple getTuple(short index){
-		if(header.isValidTuple(index))return null;
+		if(!header.isValidTuple(index))return null;
 		Tuple t = Tuple.emptyTuple(header.tupleSize,false);
 		int tupleOffset = Tuple.headerSize;
 		for(int i = 0; i < header.attributeNum; i++){
+//			System.out.println("="+(header.offsets[i]+index*header.attributeLen[i]));
+//			if(header.attributeLen[i]==4)
+//				System.out.println(this.getInt(header.offsets[i]+index*header.attributeLen[i]));
+//			else System.out.println(this.getDouble(header.offsets[i]+index*header.attributeLen[i]));
 			t.setBytes(tupleOffset,this, 
 					header.offsets[i]+index*header.attributeLen[i],header.attributeLen[i]);
 			tupleOffset += header.attributeLen[i];
 		}
+		t.writerIndex(header.tupleSize+Tuple.headerSize);
+		
 		return  t;
 	}
 	

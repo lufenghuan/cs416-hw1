@@ -14,11 +14,15 @@ import edu.jhu.cs.damsl.catalog.identifiers.TableId;
 import edu.jhu.cs.damsl.catalog.specs.TableSpec;
 import edu.jhu.cs.damsl.engine.dbms.DbEngine;
 import edu.jhu.cs.damsl.engine.storage.file.ContiguousHeapFile;
+import edu.jhu.cs.damsl.engine.storage.file.PAXHeapFile;
 import edu.jhu.cs.damsl.engine.storage.file.SlottedHeapFile;
 import edu.jhu.cs.damsl.engine.storage.file.factory.ContiguousStorageFileFactory;
+import edu.jhu.cs.damsl.engine.storage.file.factory.PAXStorageFileFactory;
 import edu.jhu.cs.damsl.engine.storage.file.factory.SlottedStorageFileFactory;
 import edu.jhu.cs.damsl.engine.storage.iterator.page.StorageIterator;
 import edu.jhu.cs.damsl.engine.storage.page.ContiguousPage;
+import edu.jhu.cs.damsl.engine.storage.page.PAXPage;
+import edu.jhu.cs.damsl.engine.storage.page.PAXPageHeader;
 import edu.jhu.cs.damsl.engine.storage.page.Page;
 import edu.jhu.cs.damsl.engine.storage.page.PageHeader;
 import edu.jhu.cs.damsl.engine.storage.page.SlottedPage;
@@ -32,25 +36,34 @@ import edu.jhu.cs.damsl.utils.WorkloadGenerator;
 public class HW1Terminal extends Thread {
   String prompt;
 
-//  DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile> dbms;
-//  WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile> generator;
-//  
+  DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile> dbms;
+  WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile> generator;
+  
   //======
   //contiguous
   //======
-  DbEngine<PageHeader, ContiguousPage, ContiguousHeapFile> dbms;
-  WorkloadGenerator<PageHeader, ContiguousPage, ContiguousHeapFile> generator;
+//  DbEngine<PageHeader, ContiguousPage, ContiguousHeapFile> dbms;
+//  WorkloadGenerator<PageHeader, ContiguousPage, ContiguousHeapFile> generator;
+   
+  //======
+  //PAX
+  //======
+//  DbEngine<PAXPageHeader, PAXPage, PAXHeapFile> dbms;
+//  WorkloadGenerator<PAXPageHeader, PAXPage, PAXHeapFile> generator;
   
   
   
   public HW1Terminal(String prompt) {
     this.prompt = prompt;
     
-    //SlottedStorageFileFactory f = new SlottedStorageFileFactory();
-    
-    ContiguousStorageFileFactory f = new ContiguousStorageFileFactory();
-    
-    dbms = new DbEngine<PageHeader, ContiguousPage, ContiguousHeapFile>(f);
+    SlottedStorageFileFactory f = new SlottedStorageFileFactory();
+    dbms = new DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile>(f);
+
+//    ContiguousStorageFileFactory f = new ContiguousStorageFileFactory();
+//    dbms = new DbEngine<PageHeader, ContiguousPage, ContiguousHeapFile>(f);
+
+//    PAXStorageFileFactory f = new PAXStorageFileFactory();
+//    dbms = new DbEngine<PAXPageHeader, PAXPage, PAXHeapFile>(f);
 
 //    generator = 
 //      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
@@ -171,11 +184,14 @@ public class HW1Terminal extends Thread {
       String catalogFile = args.pop();
       
       // Reinitialize the DBMS from a catalog file.
-//      SlottedStorageFileFactory f = new SlottedStorageFileFactory();      
-//      dbms = new DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile>(catalogFile, f);
+      SlottedStorageFileFactory f = new SlottedStorageFileFactory();      
+      dbms = new DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile>(catalogFile, f);
       
-      ContiguousStorageFileFactory f = new ContiguousStorageFileFactory();      
-      dbms = new DbEngine<PageHeader, ContiguousPage, ContiguousHeapFile>(catalogFile, f);
+//      ContiguousStorageFileFactory f = new ContiguousStorageFileFactory();      
+//      dbms = new DbEngine<PageHeader, ContiguousPage, ContiguousHeapFile>(catalogFile, f);
+      
+//      PAXStorageFileFactory f = new PAXStorageFileFactory();      
+//      dbms = new DbEngine<PAXPageHeader, PAXPage, PAXHeapFile>(catalogFile, f);
 
     } else if (cmd.toLowerCase().equals("save")) {
 
@@ -224,12 +240,14 @@ public class HW1Terminal extends Thread {
      * Benchmark  
      *------------------------------*/
     else if (cmd.toLowerCase().equals("benchmark")) {
-//    	 generator = 
-//    		      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
-    	
     	 generator = 
- 		      new WorkloadGenerator<PageHeader, ContiguousPage, ContiguousHeapFile>(dbms);
-    	 
+    		      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
+    	
+//    	 generator = 
+// 		      new WorkloadGenerator<PageHeader, ContiguousPage, ContiguousHeapFile>(dbms);
+    	
+//    	 generator = 
+//	      new WorkloadGenerator< PAXPageHeader, PAXPage, PAXHeapFile>(dbms);
     	 
       String benchmarkMode = args.pop();
       String tableName = args.pop();
@@ -308,27 +326,35 @@ public class HW1Terminal extends Thread {
   	if(prob !=-1.0) p = prob;
   	
   	// Reinitialize the DBMS from a catalog file.
-//  	String catalogFile = "./full_4k";
-//    SlottedStorageFileFactory f = new SlottedStorageFileFactory();      
-//    dbms = new DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile>(catalogFile, f);
-//    
-//    //workload generator
-//    TableId tid = dbms.getStorageEngine().getCatalog().getTableByName(tableName).getId();
-//    generator = 
-//	      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
-  	
-  	
   	String catalogFile = "./full_4k";
-    ContiguousStorageFileFactory f = new ContiguousStorageFileFactory();      
-    dbms = new DbEngine< PageHeader, ContiguousPage, ContiguousHeapFile>(catalogFile, f);
+    SlottedStorageFileFactory f = new SlottedStorageFileFactory();      
+    dbms = new DbEngine<SlottedPageHeader, SlottedPage, SlottedHeapFile>(catalogFile, f);
     
     //workload generator
     TableId tid = dbms.getStorageEngine().getCatalog().getTableByName(tableName).getId();
     generator = 
-	      new WorkloadGenerator< PageHeader, ContiguousPage, ContiguousHeapFile>(dbms);
+	      new WorkloadGenerator<SlottedPageHeader, SlottedPage, SlottedHeapFile>(dbms);
+  	
+   
+//  	String catalogFile = "./full_4k";
+//    ContiguousStorageFileFactory f = new ContiguousStorageFileFactory();      
+//    dbms = new DbEngine< PageHeader, ContiguousPage, ContiguousHeapFile>(catalogFile, f);
+//    
+//    //workload generator
+//    TableId tid = dbms.getStorageEngine().getCatalog().getTableByName(tableName).getId();
+//    generator = 
+//	      new WorkloadGenerator< PageHeader, ContiguousPage, ContiguousHeapFile>(dbms);
     
     
-    
+//    String catalogFile = "./full_4k";
+//    PAXStorageFileFactory f = new PAXStorageFileFactory();      
+//    dbms = new DbEngine< PAXPageHeader, PAXPage, PAXHeapFile>(catalogFile, f);
+//    
+//    //workload generator
+//    TableId tid = dbms.getStorageEngine().getCatalog().getTableByName(tableName).getId();
+//    generator = 
+//	      new WorkloadGenerator< PAXPageHeader, PAXPage, PAXHeapFile>(dbms);
+  	
     //sequential benchmark
     System.out.println("Warming up ====================================");
     generator.generate(tid, req, blo,WorkloadGenerator.Workload.Sequential, 0.0);

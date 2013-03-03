@@ -54,8 +54,8 @@ public class CSVLoader {
 //        if ( lineNumber == 9289 ) {
 //            System.out.println("Read " + lineNumber);
 //          }
-//        if(lineNumber == 100){
-//        	System.out.println("100");
+//        if(lineNumber == 292){
+//        	System.out.println("292");
 //        }
         Tuple t = Tuple.schemaTuple(schema, fields);
         dbms.getStorageEngine().insertTuple(null, tid, t);

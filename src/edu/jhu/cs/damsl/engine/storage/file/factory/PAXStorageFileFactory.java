@@ -20,28 +20,37 @@ public class PAXStorageFileFactory
         implements StorageFileFactory<PAXPageHeader, PAXPage, PAXHeapFile>
 {
 
+	 protected static final PAXPageFactory pageFactory
+   = new PAXPageFactory();
+	 
+	 StorageEngine<PAXPageHeader, PAXPage, PAXHeapFile> engine;
+	  Integer pageSize;
+	  Long capacity;
   public PAXStorageFileFactory() {}
 
-  public void initialize(DbEngine<PAXPageHeader, PAXPage, PAXHeapFile> dbms) {}
+  public void initialize(DbEngine<PAXPageHeader, PAXPage, PAXHeapFile> dbms) {
+  	 engine   = dbms.getStorageEngine();
+     pageSize = engine.getBufferPool().getPageSize();
+     capacity = Defaults.getDefaultFileSize();
+  }
 
-  public PAXPageFactory getPageFactory() { return null; }
+  public PAXPageFactory getPageFactory() { return pageFactory; }
 
   public PAXHeapFile getFile(String fName)
     throws FileNotFoundException
   {
-    return null;
+  	return getFile(fName, null);
   }
 
   public PAXHeapFile getFile(String fName, Schema sch)
     throws FileNotFoundException
   {
-    return null;
+  	return new PAXHeapFile(engine, fName, pageSize, capacity, sch);
   }    
 
   public PAXHeapFile getFile(FileId id, Schema sch, TableId rel)
     throws FileNotFoundException
   {
-    return null;
+  	 return new PAXHeapFile(engine, id, sch, rel);
   }
-
 }

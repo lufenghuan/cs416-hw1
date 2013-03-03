@@ -41,7 +41,7 @@ public class Defaults {
   public static Integer defaultPoolContentCacheSize = 10000;
 
   // Default page size
-  public static Integer defaultPageSize = 16;
+  public static Integer defaultPageSize = 4;
   public static SizeUnits defaultPageUnit = SizeUnits.Kilo;
 
   // Default number of tuple slots per page.
